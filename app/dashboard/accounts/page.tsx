@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 
 export default async function AccountsListPage({ searchParams }: { searchParams?: Promise<{ q?: string; health?: string; stage?: string; start?: string; end?: string; range?: string }> }) {
-  const sp = (await (searchParams || Promise.resolve({}))) || {}
+  const sp = await searchParams ?? {}
   const filters: any = {}
   const rangeDays = sp.range ? parseInt(sp.range, 10) : null
 

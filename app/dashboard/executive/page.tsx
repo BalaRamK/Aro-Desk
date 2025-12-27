@@ -7,7 +7,7 @@ import { DollarSign, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
 export default async function ExecutiveDashboardPage({ searchParams }: { searchParams?: Promise<{ start?: string; end?: string; range?: string }> }) {
-  const sp = (await (searchParams || Promise.resolve({}))) || {}
+  const sp = await searchParams ?? {}
   const rangeDays = sp.range ? parseInt(sp.range, 10) : null
 
   let startDate = sp.start || ''
