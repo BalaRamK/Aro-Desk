@@ -103,7 +103,9 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Accounts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" title="Parent accounts only" />
+            <span title="Parent accounts only">
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </span>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" title="Parent accounts in scope">{totalAccounts}</div>
@@ -116,7 +118,9 @@ export default async function ExecutiveDashboardPage({ searchParams }: { searchP
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Revenue at Risk</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" title="Accounts under $50 health" />
+            <span title="Accounts under $50 health">
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </span>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
