@@ -1,0 +1,472 @@
+'use server'
+
+import { query, getClient, setUserContext } from '@/lib/db'
+import { getSession } from './auth-local'
+import { redirect } from 'next/navigation'
+
+// Get global health distribution for Executive Dashboard
+export async function getHealthDistribution() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    WITH latest_health AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, overall_score, calculated_at
+      FROM health_scores
+      ORDER BY account_id, calculated_at DESC
+    )
+    SELECT 
+      CASE 
+        WHEN lh.overall_score >= 70 THEN 'Healthy'
+        WHEN lh.overall_score >= 40 THEN 'At Risk'
+        ELSE 'Critical'
+      END as health_category,
+      COUNT(*) as count,
+      ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM accounts WHERE parent_id IS NULL), 1) as percentage
+    FROM latest_health lh
+    JOIN accounts a ON lh.account_id = a.id
+    WHERE a.parent_id IS NULL
+    GROUP BY health_category
+    ORDER BY health_category DESC
+  `)
+  
+  return result.rows
+}
+
+// Get accounts at risk with high revenue
+export async function getRevenueAtRisk() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    WITH latest_health AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, overall_score, risk_level, calculated_at
+      FROM health_scores
+      ORDER BY account_id, calculated_at DESC
+    )
+    SELECT 
+      a.id,
+      a.name,
+      a.arr,
+      lh.overall_score,
+      lh.risk_level,
+      p.full_name as csm_name
+    FROM accounts a
+    JOIN latest_health lh ON a.id = lh.account_id
+    LEFT JOIN profiles p ON a.csm_id = p.id
+    WHERE a.arr > 100000
+      AND lh.overall_score < 50
+      AND a.parent_id IS NULL
+    ORDER BY a.arr DESC, lh.overall_score ASC
+    LIMIT 10
+  `)
+  
+  return result.rows
+}
+
+// Get portfolio growth trend (accounts moving through stages)
+export async function getPortfolioGrowth(days: number = 90) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    WITH stage_counts AS (
+      SELECT 
+        DATE(jh.entered_at) as date,
+        jh.to_stage as stage,
+        COUNT(DISTINCT jh.account_id) as account_count
+      FROM journey_history jh
+      WHERE jh.entered_at >= NOW() - INTERVAL '${days} days'
+      GROUP BY DATE(jh.entered_at), jh.to_stage
+    )
+    SELECT 
+      date,
+      stage::text,
+      account_count,
+      SUM(account_count) OVER (ORDER BY date) as cumulative_count
+    FROM stage_counts
+    ORDER BY date DESC
+    LIMIT 100
+  `)
+  
+  return result.rows
+}
+
+// Get all accounts with hierarchy info
+export async function getAccounts(filters?: {
+  searchTerm?: string
+  healthFilter?: string
+  stageFilter?: string
+}) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  let whereConditions = []
+  let params: any[] = []
+  
+  if (filters?.searchTerm) {
+    params.push(`%${filters.searchTerm}%`)
+    whereConditions.push(`a.name ILIKE $${params.length}`)
+  }
+  
+  if (filters?.healthFilter) {
+    if (filters.healthFilter === 'Healthy') {
+      whereConditions.push(`hs.overall_score >= 70`)
+    } else if (filters.healthFilter === 'At Risk') {
+      whereConditions.push(`hs.overall_score >= 40 AND hs.overall_score < 70`)
+    } else if (filters.healthFilter === 'Critical') {
+      whereConditions.push(`hs.overall_score < 40`)
+    }
+  }
+  
+  if (filters?.stageFilter) {
+    params.push(filters.stageFilter)
+    whereConditions.push(`ls.to_stage = $${params.length}`)
+  }
+  
+  const whereClause = whereConditions.length > 0 ? `AND ${whereConditions.join(' AND ')}` : ''
+  
+  const result = await query(`
+    WITH latest_health AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, overall_score, risk_level, usage_score, engagement_score, support_sentiment_score, adoption_score
+      FROM health_scores
+      ORDER BY account_id, calculated_at DESC
+    ),
+    latest_stage AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, to_stage
+      FROM journey_history
+      ORDER BY account_id, entered_at DESC
+    )
+    SELECT 
+      a.id,
+      a.name,
+      a.parent_id,
+      a.hierarchy_level,
+      a.hierarchy_path,
+      ls.to_stage as current_stage,
+      a.crm_attributes,
+      a.status,
+      lh.overall_score,
+      lh.risk_level,
+      lh.usage_score,
+      lh.engagement_score,
+      lh.support_sentiment_score,
+      lh.adoption_score,
+      pa.name as parent_name,
+      u.email as csm_email,
+      p.full_name as csm_name
+    FROM accounts a
+    LEFT JOIN latest_health lh ON a.id = lh.account_id
+    LEFT JOIN latest_stage ls ON a.id = ls.account_id
+    LEFT JOIN accounts pa ON a.parent_id = pa.id
+    LEFT JOIN users u ON a.csm_id = u.id
+    LEFT JOIN profiles p ON u.id = p.id
+    WHERE 1=1 ${whereClause}
+    ORDER BY a.hierarchy_level, a.name
+  `, params)
+  
+  return result.rows
+}
+
+// Get single account details with full context
+export async function getAccountDetails(accountId: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const accountResult = await query(`
+    WITH latest_health AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, overall_score, risk_level, usage_score, engagement_score, support_sentiment_score, adoption_score, created_at
+      FROM health_scores
+      ORDER BY account_id, calculated_at DESC
+    ),
+    latest_stage AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, to_stage
+      FROM journey_history
+      ORDER BY account_id, entered_at DESC
+    )
+    SELECT 
+      a.*,
+      lh.overall_score,
+      lh.risk_level,
+      lh.usage_score,
+      lh.engagement_score,
+      lh.support_sentiment_score,
+      lh.adoption_score,
+      lh.created_at as health_updated_at,
+      ls.to_stage as current_stage,
+      pa.name as parent_name,
+      u.email as csm_email,
+      p.full_name as csm_name
+    FROM accounts a
+    LEFT JOIN latest_health lh ON a.id = lh.account_id
+    LEFT JOIN latest_stage ls ON a.id = ls.account_id
+    LEFT JOIN accounts pa ON a.parent_id = pa.id
+    LEFT JOIN users u ON a.csm_id = u.id
+    LEFT JOIN profiles p ON u.id = p.id
+    WHERE a.id = $1
+  `, [accountId])
+  
+  if (accountResult.rows.length === 0) {
+    return null
+  }
+  
+  // Get subsidiaries
+  const subsidiariesResult = await query(`
+    WITH latest_stage AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, to_stage
+      FROM journey_history
+      ORDER BY account_id, entered_at DESC
+    )
+    SELECT a.id, a.name, ls.to_stage as current_stage, a.hierarchy_level
+    FROM accounts a
+    LEFT JOIN latest_stage ls ON a.id = ls.account_id
+    WHERE a.parent_id = $1
+    ORDER BY a.name
+  `, [accountId])
+  
+  // Get recent journey history
+  const journeyResult = await query(`
+    SELECT 
+      jh.*,
+      u.email as changed_by_email
+    FROM journey_history jh
+    LEFT JOIN users u ON jh.changed_by = u.id
+    WHERE jh.account_id = $1
+    ORDER BY jh.entered_at DESC
+    LIMIT 10
+  `, [accountId])
+  
+  // Get recent usage metrics
+  const metricsResult = await query(`
+    SELECT *
+    FROM usage_metrics
+    WHERE account_id = $1
+    ORDER BY recorded_at DESC
+    LIMIT 30
+  `, [accountId])
+  
+  return {
+    account: accountResult.rows[0],
+    subsidiaries: subsidiariesResult.rows,
+    journey: journeyResult.rows,
+    metrics: metricsResult.rows
+  }
+}
+
+// Get all journey stages
+export async function getJourneyStages() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    SELECT *
+    FROM journey_stages
+    ORDER BY display_order
+  `)
+  
+  return result.rows
+}
+
+// Get accounts grouped by journey stage (for Kanban)
+export async function getAccountsByStage() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const stagesResult = await query(`
+    SELECT DISTINCT ON (id)
+      id,
+      stage,
+      display_order,
+      target_duration_days,
+      color_hex
+    FROM journey_stages
+    ORDER BY id, display_order
+  `)
+  
+  const accountsResult = await query(`
+    WITH latest_stage AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, to_stage, entered_at
+      FROM journey_history
+      ORDER BY account_id, entered_at DESC
+    ),
+    latest_health AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, overall_score, risk_level, calculated_at
+      FROM health_scores
+      ORDER BY account_id, calculated_at DESC
+    )
+    SELECT 
+      a.id,
+      a.name,
+      ls.to_stage as current_stage,
+      a.arr,
+      lh.overall_score,
+      lh.risk_level,
+      p.full_name as csm_name
+    FROM accounts a
+    LEFT JOIN latest_stage ls ON a.id = ls.account_id
+    LEFT JOIN latest_health lh ON a.id = lh.account_id
+    LEFT JOIN profiles p ON a.csm_id = p.id
+    WHERE a.parent_id IS NULL
+    ORDER BY ls.to_stage, a.name
+  `)
+  
+  return {
+    stages: stagesResult.rows,
+    accounts: accountsResult.rows
+  }
+}
+
+// Update account stage (for Kanban drag-and-drop)
+export async function updateAccountStage(accountId: string, newStage: string, notes?: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    
+    // Get current stage from latest journey history
+    const currentResult = await client.query(
+      `SELECT to_stage FROM journey_history 
+       WHERE account_id = $1 
+       ORDER BY entered_at DESC 
+       LIMIT 1`,
+      [accountId]
+    )
+    
+    const oldStage = currentResult.rows.length > 0 ? currentResult.rows[0].to_stage : null
+    
+    // Exit old stage if exists
+    if (oldStage) {
+      await client.query(`
+        UPDATE journey_history
+        SET exited_at = NOW()
+        WHERE account_id = $1 AND to_stage = $2 AND exited_at IS NULL
+      `, [accountId, oldStage])
+    }
+    
+    // Create new journey history entry
+    await client.query(`
+      INSERT INTO journey_history (account_id, from_stage, to_stage, changed_by, reason)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [accountId, oldStage, newStage, session.userId, notes || 'Stage updated via Kanban board'])
+    
+    await client.query('COMMIT')
+    
+    return { success: true }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error updating account stage:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+// Get playbooks with execution stats
+export async function getPlaybooks() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    SELECT 
+      p.*,
+      COUNT(pe.id) as total_executions,
+      COUNT(CASE WHEN pe.executed_at >= NOW() - INTERVAL '7 days' THEN 1 END) as executions_last_7_days,
+      MAX(pe.executed_at) as last_executed_at
+    FROM playbooks p
+    LEFT JOIN playbook_executions pe ON p.id = pe.playbook_id
+    WHERE p.is_active = true
+    GROUP BY p.id
+    ORDER BY p.name
+  `)
+  
+  return result.rows
+}
+
+// Get webhook queue status
+export async function getWebhookQueue(limit: number = 50) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    SELECT 
+      wq.*,
+      p.name as playbook_name,
+      a.name as account_name
+    FROM webhook_queue wq
+    LEFT JOIN playbooks p ON wq.playbook_id = p.id
+    LEFT JOIN accounts a ON (wq.payload->>'account_id')::uuid = a.id
+    ORDER BY wq.created_at DESC
+    LIMIT $1
+  `, [limit])
+  
+  return result.rows
+}
+
+// Get recent account activity for sidebar search
+export async function getRecentAccounts(limit: number = 5) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    WITH latest_health AS (
+      SELECT DISTINCT ON (account_id) 
+        account_id, overall_score, calculated_at
+      FROM health_scores
+      ORDER BY account_id, calculated_at DESC
+    ),
+    latest_stage AS (
+      SELECT DISTINCT ON (account_id)
+        account_id, to_stage, entered_at
+      FROM journey_history
+      ORDER BY account_id, entered_at DESC
+    )
+    SELECT
+      a.id,
+      a.name,
+      ls.to_stage as current_stage,
+      lh.overall_score,
+      ls.entered_at as last_activity
+    FROM accounts a
+    LEFT JOIN latest_health lh ON a.id = lh.account_id
+    LEFT JOIN latest_stage ls ON a.id = ls.account_id
+    WHERE a.parent_id IS NULL
+    ORDER BY ls.entered_at DESC NULLS LAST
+    LIMIT $1
+  `, [limit])
+  
+  return result.rows
+}

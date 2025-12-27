@@ -1,0 +1,6 @@
+{
+  "/dashboard/integrations/page": "app/dashboard/integrations/page.js",
+  "/dashboard/executive/page": "app/dashboard/executive/page.js",
+  "/dashboard/admin/page": "app/dashboard/admin/page.js",
+  "/dashboard/accounts/page": "app/dashboard/accounts/page.js"
+}
