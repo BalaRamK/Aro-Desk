@@ -11,30 +11,40 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/layout.js"
     ],
+    "/dashboard/executive/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/executive/page.js"
+    ],
+    "/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/page.js"
+    ],
+    "/dashboard/journey/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/journey/page.js"
+    ],
     "/dashboard/integrations/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/integrations/page.js"
-    ],
-    "/dashboard/admin/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/admin/page.js"
     ],
     "/dashboard/accounts/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/accounts/page.js"
     ],
-    "/dashboard/executive/page": [
+    "/dashboard/admin/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/executive/page.js"
+      "static/chunks/app/dashboard/admin/page.js"
     ],
-    "/dashboard/journey/page": [
+    "/dashboard/automation/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/journey/page.js"
+      "static/chunks/app/dashboard/automation/page.js"
     ]
   }
 }

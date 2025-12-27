@@ -1,15 +1,32 @@
 import { getHealthDistribution, getRevenueAtRisk, getPortfolioGrowth } from '@/app/actions/dashboard'
+import { listRecentCdiEvents } from '@/app/actions/customer_success'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { HealthPieChart, PortfolioGrowthChart } from '@/components/executive-charts'
 import { DollarSign, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
-export default async function ExecutiveDashboardPage() {
-  const [healthDistribution, revenueAtRisk, portfolioGrowth] = await Promise.all([
-    getHealthDistribution(),
-    getRevenueAtRisk(),
-    getPortfolioGrowth(90)
+export default async function ExecutiveDashboardPage({ searchParams }: { searchParams?: Promise<{ start?: string; end?: string; range?: string }> }) {
+  const sp = (await (searchParams || Promise.resolve({}))) || {}
+  const rangeDays = sp.range ? parseInt(sp.range, 10) : null
+
+  let startDate = sp.start || ''
+  let endDate = sp.end || ''
+  if (rangeDays && !Number.isNaN(rangeDays)) {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(end.getDate() - (rangeDays - 1))
+    startDate = start.toISOString().slice(0, 10)
+    endDate = end.toISOString().slice(0, 10)
+  }
+
+  const dateFilters = { startDate, endDate }
+
+  const [healthDistribution, revenueAtRisk, portfolioGrowth, recentSignals] = await Promise.all([
+    getHealthDistribution(dateFilters),
+    getRevenueAtRisk(dateFilters),
+    getPortfolioGrowth(90, dateFilters),
+    listRecentCdiEvents(10)
   ])
 
   // Calculate total accounts and revenue metrics
@@ -39,15 +56,57 @@ export default async function ExecutiveDashboardPage() {
         </p>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Date Range</CardTitle>
+          <CardDescription>Limit metrics to a window (defaults to last 90 days)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form method="GET" className="grid gap-3 md:grid-cols-4 items-end">
+            <div>
+              <label className="text-xs text-muted-foreground">Start</label>
+              <input type="date" name="start" defaultValue={startDate} className="mt-1 w-full border rounded-md p-2 text-sm bg-white dark:bg-slate-900" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">End</label>
+              <input type="date" name="end" defaultValue={endDate} className="mt-1 w-full border rounded-md p-2 text-sm bg-white dark:bg-slate-900" />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <div className="text-xs text-muted-foreground w-full">Quick ranges</div>
+              {[
+                { label: 'Last 7d', value: '7' },
+                { label: 'Last 30d', value: '30' },
+                { label: 'Last 90d', value: '90' },
+              ].map((range) => (
+                <button
+                  key={range.value}
+                  type="submit"
+                  name="range"
+                  value={range.value}
+                  className={`border rounded-md px-3 py-2 text-sm ${sp.range === range.value ? 'bg-slate-200 dark:bg-slate-800' : ''}`}
+                  title={`Set date window to ${range.label}`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="border rounded-md px-3 py-2 text-sm">Apply</button>
+              <Link href="/dashboard/executive" className="border rounded-md px-3 py-2 text-sm">Reset</Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Accounts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" title="Parent accounts only" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalAccounts}</div>
+            <div className="text-2xl font-bold" title="Parent accounts in scope">{totalAccounts}</div>
             <p className="text-xs text-muted-foreground">
               {criticalCount} critical {criticalCount === '1' ? 'account' : 'accounts'}
             </p>
@@ -57,7 +116,7 @@ export default async function ExecutiveDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Revenue at Risk</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-muted-foreground" title="Accounts under $50 health" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -140,6 +199,31 @@ export default async function ExecutiveDashboardPage() {
                       </span>
                     </div>
                   </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Signals (CDI) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Signals</CardTitle>
+          <CardDescription>Unified support, analytics, and CRM events</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {recentSignals.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No recent signals</p>
+            ) : (
+              recentSignals.map((s: any) => (
+                <Link key={s.id} href={`/dashboard/accounts/${s.account_id}`} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{s.account_name || 'Unknown'} • {s.source_type} • {s.event_type}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(s.occurred_at).toLocaleString()}</p>
+                  </div>
+                  <Badge variant="outline">signal</Badge>
                 </Link>
               ))
             )}

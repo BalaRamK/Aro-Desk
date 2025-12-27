@@ -4,19 +4,56 @@ import { query, getClient, setUserContext } from '@/lib/db'
 import { getSession } from './auth-local'
 import { redirect } from 'next/navigation'
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function normalizeDateRange(params?: { startDate?: string; endDate?: string }) {
+  if (!params) return { startDate: undefined, endDate: undefined }
+  const isValid = (value?: string) => !!value && DATE_RE.test(value) && !Number.isNaN(new Date(value).getTime())
+  let startDate = isValid(params.startDate) ? params.startDate : undefined
+  let endDate = isValid(params.endDate) ? params.endDate : undefined
+  if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    startDate = undefined
+    endDate = undefined
+  }
+  return { startDate, endDate }
+}
+
 // Get global health distribution for Executive Dashboard
-export async function getHealthDistribution() {
+export async function getHealthDistribution(params?: { startDate?: string; endDate?: string }) {
   const session = await getSession()
   if (!session) redirect('/login')
   
   await setUserContext(session.userId)
+
+  const { startDate, endDate } = normalizeDateRange(params)
+  const dateFilters: string[] = []
+  const sqlParams: any[] = []
+  if (startDate) {
+    sqlParams.push(startDate)
+    dateFilters.push(`COALESCE(window_end, calculated_at, created_at)::date >= $${sqlParams.length}::date`)
+  }
+  if (endDate) {
+    sqlParams.push(endDate)
+    dateFilters.push(`COALESCE(window_end, calculated_at, created_at)::date <= $${sqlParams.length}::date`)
+  }
+  const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
   
   const result = await query(`
     WITH latest_health AS (
       SELECT DISTINCT ON (account_id)
         account_id, overall_score, calculated_at
       FROM health_scores
+      ${dateClause}
       ORDER BY account_id, calculated_at DESC
+    ),
+    filtered_accounts AS (
+      SELECT lh.account_id, lh.overall_score
+      FROM latest_health lh
+      JOIN accounts a ON lh.account_id = a.id
+      WHERE a.parent_id IS NULL
+    ),
+    totals AS (
+      SELECT COUNT(*) AS total FROM filtered_accounts
     )
     SELECT 
       CASE 
@@ -25,29 +62,42 @@ export async function getHealthDistribution() {
         ELSE 'Critical'
       END as health_category,
       COUNT(*) as count,
-      ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM accounts WHERE parent_id IS NULL), 1) as percentage
-    FROM latest_health lh
-    JOIN accounts a ON lh.account_id = a.id
-    WHERE a.parent_id IS NULL
-    GROUP BY health_category
+      ROUND(100.0 * COUNT(*) / NULLIF((SELECT total FROM totals), 0), 1) as percentage
+    FROM filtered_accounts lh
+    CROSS JOIN totals
+    GROUP BY health_category, totals.total
     ORDER BY health_category DESC
-  `)
+  `, sqlParams)
   
   return result.rows
 }
 
 // Get accounts at risk with high revenue
-export async function getRevenueAtRisk() {
+export async function getRevenueAtRisk(params?: { startDate?: string; endDate?: string }) {
   const session = await getSession()
   if (!session) redirect('/login')
   
   await setUserContext(session.userId)
+
+  const { startDate, endDate } = normalizeDateRange(params)
+  const dateFilters: string[] = []
+  const sqlParams: any[] = []
+  if (startDate) {
+    sqlParams.push(startDate)
+    dateFilters.push(`COALESCE(calculated_at, window_end, created_at)::date >= $${sqlParams.length}::date`)
+  }
+  if (endDate) {
+    sqlParams.push(endDate)
+    dateFilters.push(`COALESCE(calculated_at, window_end, created_at)::date <= $${sqlParams.length}::date`)
+  }
+  const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
   
   const result = await query(`
     WITH latest_health AS (
       SELECT DISTINCT ON (account_id)
         account_id, overall_score, risk_level, calculated_at
       FROM health_scores
+      ${dateClause}
       ORDER BY account_id, calculated_at DESC
     )
     SELECT 
@@ -65,17 +115,32 @@ export async function getRevenueAtRisk() {
       AND a.parent_id IS NULL
     ORDER BY a.arr DESC, lh.overall_score ASC
     LIMIT 10
-  `)
+  `, sqlParams)
   
   return result.rows
 }
 
 // Get portfolio growth trend (accounts moving through stages)
-export async function getPortfolioGrowth(days: number = 90) {
+export async function getPortfolioGrowth(days: number = 90, params?: { startDate?: string; endDate?: string }) {
   const session = await getSession()
   if (!session) redirect('/login')
   
   await setUserContext(session.userId)
+
+  const { startDate, endDate } = normalizeDateRange(params)
+  const dateFilters: string[] = []
+  const sqlParams: any[] = []
+  if (startDate) {
+    sqlParams.push(startDate)
+    dateFilters.push(`jh.entered_at::date >= $${sqlParams.length}::date`)
+  } else {
+    dateFilters.push(`jh.entered_at >= NOW() - INTERVAL '${days} days'`)
+  }
+  if (endDate) {
+    sqlParams.push(endDate)
+    dateFilters.push(`jh.entered_at::date <= $${sqlParams.length}::date`)
+  }
+  const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
   
   const result = await query(`
     WITH stage_counts AS (
@@ -84,7 +149,7 @@ export async function getPortfolioGrowth(days: number = 90) {
         jh.to_stage as stage,
         COUNT(DISTINCT jh.account_id) as account_count
       FROM journey_history jh
-      WHERE jh.entered_at >= NOW() - INTERVAL '${days} days'
+      ${dateClause}
       GROUP BY DATE(jh.entered_at), jh.to_stage
     )
     SELECT 
@@ -95,7 +160,7 @@ export async function getPortfolioGrowth(days: number = 90) {
     FROM stage_counts
     ORDER BY date DESC
     LIMIT 100
-  `)
+  `, sqlParams)
   
   return result.rows
 }
@@ -105,14 +170,28 @@ export async function getAccounts(filters?: {
   searchTerm?: string
   healthFilter?: string
   stageFilter?: string
+  startDate?: string
+  endDate?: string
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
   
   await setUserContext(session.userId)
   
+  const { startDate, endDate } = normalizeDateRange(filters)
   let whereConditions = []
   let params: any[] = []
+
+  const healthDateConditions: string[] = []
+  if (startDate) {
+    params.push(startDate)
+    healthDateConditions.push(`COALESCE(calculated_at, window_end, created_at)::date >= $${params.length}::date`)
+  }
+  if (endDate) {
+    params.push(endDate)
+    healthDateConditions.push(`COALESCE(calculated_at, window_end, created_at)::date <= $${params.length}::date`)
+  }
+  const healthDateClause = healthDateConditions.length ? `WHERE ${healthDateConditions.join(' AND ')}` : ''
   
   if (filters?.searchTerm) {
     params.push(`%${filters.searchTerm}%`)
@@ -121,11 +200,11 @@ export async function getAccounts(filters?: {
   
   if (filters?.healthFilter) {
     if (filters.healthFilter === 'Healthy') {
-      whereConditions.push(`hs.overall_score >= 70`)
+      whereConditions.push(`lh.overall_score >= 70`)
     } else if (filters.healthFilter === 'At Risk') {
-      whereConditions.push(`hs.overall_score >= 40 AND hs.overall_score < 70`)
+      whereConditions.push(`lh.overall_score >= 40 AND lh.overall_score < 70`)
     } else if (filters.healthFilter === 'Critical') {
-      whereConditions.push(`hs.overall_score < 40`)
+      whereConditions.push(`lh.overall_score < 40`)
     }
   }
   
@@ -141,6 +220,7 @@ export async function getAccounts(filters?: {
       SELECT DISTINCT ON (account_id)
         account_id, overall_score, risk_level, usage_score, engagement_score, support_sentiment_score, adoption_score
       FROM health_scores
+      ${healthDateClause}
       ORDER BY account_id, calculated_at DESC
     ),
     latest_stage AS (

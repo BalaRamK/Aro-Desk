@@ -1,4 +1,5 @@
 import { getAccountDetails } from '@/app/actions/dashboard'
+import { getHealthTrend, getComponentTrends, listSuccessPlans, listPlanSteps, listAlerts, listSentiment, listCdiEvents, listPlaybookRuns } from '@/app/actions/customer_success'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -8,6 +9,8 @@ import {
   Phone, Mail, Calendar, TrendingUp, TrendingDown, Activity,
   Building2, DollarSign, Users, Clock
 } from 'lucide-react'
+import { Sparkline, SentimentSparkline, PlanProgress } from '@/components/sparkline'
+import { SendReengagementEmailButton } from '@/components/ai-actions'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
@@ -26,6 +29,19 @@ export default async function AccountDetailPage({
 
   const { account, subsidiaries, journey, metrics } = data
 
+  // Customer Success extensions
+  const healthTrend = await getHealthTrend(id, 12)
+  const componentTrendRows = await getComponentTrends(id, 12)
+  const alerts = await listAlerts(id, 20)
+  const sentiments = await listSentiment(id, 20)
+  const cdi = await listCdiEvents(id, 30)
+  const plans = await listSuccessPlans(id)
+  const planStepsMap: Record<string, any[]> = {}
+  for (const p of plans) {
+    planStepsMap[p.id] = await listPlanSteps(p.id)
+  }
+  const playbookRuns = await listPlaybookRuns(id, 20)
+
   // Build hierarchy breadcrumb
   const hierarchyPath = account.hierarchy_path?.split('.') || []
   
@@ -35,6 +51,15 @@ export default async function AccountDetailPage({
     if (score >= 40) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
     return 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
   }
+
+  const componentTrends = {
+    usage: [...componentTrendRows].reverse().map((row: any) => Number(row.usage_score || 0)),
+    engagement: [...componentTrendRows].reverse().map((row: any) => Number(row.engagement_score || 0)),
+    support: [...componentTrendRows].reverse().map((row: any) => Number(row.support_sentiment_score || 0)),
+    adoption: [...componentTrendRows].reverse().map((row: any) => Number(row.adoption_score || 0))
+  }
+
+  const healthSeries = [...healthTrend].reverse().map((h: any) => Number(h.score || 0))
 
   return (
     <div className="p-6 space-y-6">
@@ -154,20 +179,23 @@ export default async function AccountDetailPage({
             </CardHeader>
             <CardContent className="space-y-4">
               {[
-                { label: 'Usage Score', value: account.usage_score, icon: Activity },
-                { label: 'Engagement Score', value: account.engagement_score, icon: TrendingUp },
-                { label: 'Support Score', value: account.support_score, icon: Phone },
-                { label: 'Adoption Score', value: account.adoption_score, icon: Users },
+                { label: 'Usage Score', value: account.usage_score, icon: Activity, series: componentTrends.usage, stroke: '#2563eb', hint: 'Feature and session frequency' },
+                { label: 'Engagement Score', value: account.engagement_score, icon: TrendingUp, series: componentTrends.engagement, stroke: '#0ea5e9', hint: 'Meetings, QBRs, email replies' },
+                { label: 'Support Score', value: account.support_sentiment_score, icon: Phone, series: componentTrends.support, stroke: '#f97316', hint: 'Ticket backlog and sentiment' },
+                { label: 'Adoption Score', value: account.adoption_score, icon: Users, series: componentTrends.adoption, stroke: '#16a34a', hint: 'Breadth across teams and features' },
               ].map((item) => (
-                <div key={item.label} className="space-y-2">
+                <div key={item.label} className="space-y-2" title={item.hint}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <item.icon className="h-4 w-4 text-slate-500" />
                       <span className="text-sm font-medium">{item.label}</span>
                     </div>
-                    <span className="text-sm font-bold">{item.value || 'N/A'}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold">{item.value || 'N/A'}</span>
+                      <Sparkline data={item.series} width={110} height={28} stroke={item.stroke} />
+                    </div>
                   </div>
-                  <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden" title="Latest score vs target">
                     <div 
                       className={`h-full transition-all ${
                         (item.value || 0) >= 70 ? 'bg-green-500' :
@@ -182,11 +210,16 @@ export default async function AccountDetailPage({
             </CardContent>
           </Card>
 
-          {/* Tabs for Journey History & Usage Metrics */}
+          {/* Tabs for Journey, Metrics, Health, Plans, Playbooks, Alerts, CDI */}
           <Tabs defaultValue="journey" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="journey">Journey History</TabsTrigger>
-              <TabsTrigger value="metrics">Usage Telemetry</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-7">
+              <TabsTrigger value="journey">Journey</TabsTrigger>
+              <TabsTrigger value="metrics">Metrics</TabsTrigger>
+              <TabsTrigger value="health">Health</TabsTrigger>
+              <TabsTrigger value="plans">Plans</TabsTrigger>
+              <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
+              <TabsTrigger value="alerts">Alerts</TabsTrigger>
+              <TabsTrigger value="cdi">CDI</TabsTrigger>
             </TabsList>
 
             <TabsContent value="journey">
@@ -265,6 +298,175 @@ export default async function AccountDetailPage({
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="health">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Health Trend</CardTitle>
+                  <CardDescription>Lifecycle-adjusted score over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {/* Sparkline */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-500">Last {healthTrend.length} periods</span>
+                      <Sparkline data={healthSeries} />
+                    </div>
+                    {healthTrend.length === 0 ? (
+                      <p className="text-sm text-slate-500 text-center py-8">No health entries</p>
+                    ) : (
+                      healthTrend.map((h: any) => (
+                        <div key={h.window_end + h.stage} className="flex items-center justify-between py-2 border-b last:border-0">
+                          <div className="flex items-center gap-3">
+                            {(h.trend ?? 0) >= 0 ? (
+                              <TrendingUp className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <TrendingDown className="h-4 w-4 text-red-500" />
+                            )}
+                            <div>
+                              <p className="text-sm font-medium">{h.stage || account.current_stage || 'Stage'}</p>
+                              <p className="text-xs text-slate-500">{format(new Date(h.window_end), 'MMM dd, yyyy')}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm font-bold">{Number(h.score).toFixed(2)} ({h.trend ?? 0 >= 0 ? '+' : ''}{(h.trend ?? 0).toFixed(2)})</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="plans">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Success Plans</CardTitle>
+                  <CardDescription>Goals and steps for this account</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {plans.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-8">No plans yet</p>
+                  ) : (
+                    <div className="space-y-6">
+                      {plans.map((p: any) => (
+                        <div key={p.id} className="border rounded-md p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">{p.name}</p>
+                              <p className="text-xs text-slate-500">Target: {p.target_date || 'N/A'} • Status: {p.status}</p>
+                            </div>
+                            <PlanProgress completed={(planStepsMap[p.id]||[]).filter((s:any)=>s.status==='done').length} total={(planStepsMap[p.id]||[]).length} />
+                          </div>
+                          <Separator className="my-3" />
+                          {planStepsMap[p.id]?.length ? (
+                            <div className="space-y-2">
+                              {planStepsMap[p.id].map((s: any) => (
+                                <div key={s.id} className="flex items-center justify-between py-1">
+                                  <div className="text-sm">{s.title}</div>
+                                  <Badge variant="outline">{s.status}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-500">No steps</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="playbooks">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Playbook Runs</CardTitle>
+                  <CardDescription>Recent executions for this account</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {playbookRuns.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-8">No runs yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {playbookRuns.map((r: any) => (
+                        <div key={r.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                          <div>
+                            <p className="text-sm font-medium">{r.playbook_name || r.playbook_id}</p>
+                            <p className="text-xs text-slate-500">{format(new Date(r.created_at), 'MMM dd, yyyy h:mm a')}</p>
+                          </div>
+                          <Badge variant="outline">{r.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="alerts">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Alerts</CardTitle>
+                  <CardDescription>Health dips, negative sentiment, and signals</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {/* Sentiment Sparkline */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500">Sentiment trend</span>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"/>positive</span>
+                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500"/>neutral</span>
+                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/>negative</span>
+                      </div>
+                    </div>
+                    <SentimentSparkline scores={sentiments.map((s: any) => Number(s.sentiment_score || 0))} />
+                  </div>
+                  {alerts.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-8">No alerts</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {alerts.map((a: any) => (
+                        <div key={a.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                          <div>
+                            <p className="text-sm font-medium">{a.message}</p>
+                            <p className="text-xs text-slate-500">{format(new Date(a.created_at), 'MMM dd, yyyy h:mm a')} • {a.alert_type}</p>
+                          </div>
+                          <Badge variant={a.severity === 'critical' ? 'destructive' : 'outline'}>{a.severity}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="cdi">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Unified Data (CDI)</CardTitle>
+                  <CardDescription>Support, analytics, and CRM signals</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {cdi.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-8">No events</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {cdi.map((e: any) => (
+                        <div key={e.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                          <div>
+                            <p className="text-sm font-medium">{e.source_type} • {e.event_type}</p>
+                            <p className="text-xs text-slate-500">{format(new Date(e.occurred_at), 'MMM dd, yyyy h:mm a')}</p>
+                          </div>
+                          <Badge variant="outline">event</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
 
@@ -292,6 +494,7 @@ export default async function AccountDetailPage({
                 <Users className="mr-2 h-4 w-4" />
                 Change Owner
               </Button>
+              <SendReengagementEmailButton accountId={id} context={{ account_name: account.name, current_stage: account.current_stage }} />
             </CardContent>
           </Card>
 

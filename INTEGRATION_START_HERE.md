@@ -245,6 +245,10 @@ Add these to `.env.local` to enable integrations:
 # Webhook security (REQUIRED)
 N8N_WEBHOOK_API_KEY=your-secure-key-here
 
+# OpenAI for AI features (REQUIRED for sentiment, emails)
+OPENAI_API_KEY=your-openai-key
+OPENAI_MODEL=gpt-4.1-mini
+
 # Zoho CRM (if using)
 ZOHO_CRM_CLIENT_ID=your.client.id
 ZOHO_CRM_CLIENT_SECRET=your.secret
