@@ -37,7 +37,7 @@ export interface IntegrationStats {
 // Get all integration sources
 export async function getIntegrationSources() {
   try {
-    const result = await query(
+    const result = await query<IntegrationSource>(
       `SELECT 
         id, tenant_id, source_type, name, description, 
         config, n8n_workflow_id, n8n_webhook_url, 
@@ -47,7 +47,7 @@ export async function getIntegrationSources() {
        ORDER BY created_at DESC`
     );
     
-    return result.rows as IntegrationSource[];
+    return result.rows;
   } catch (error) {
     console.error('Error fetching integration sources:', error);
     throw error;

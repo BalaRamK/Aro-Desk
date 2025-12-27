@@ -1,4 +1,4 @@
-import { Pool } from 'pg'
+import { Pool, type QueryResult } from 'pg'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -10,7 +10,7 @@ const pool = new Pool({
 /**
  * Execute a query against the local PostgreSQL database
  */
-export async function query(text: string, params?: any[]) {
+export async function query<T = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
   const start = Date.now()
   try {
     const res = await pool.query(text, params)
