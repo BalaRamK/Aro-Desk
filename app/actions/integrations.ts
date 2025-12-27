@@ -293,11 +293,11 @@ export async function getSyncLogs(integrationId: string, limit = 10) {
 // Get synced external data
 export async function getExternalData(type: 'contacts' | 'tickets' | 'deals', accountId?: string) {
   try {
-    let query = '';
+    let sql = '';
     let params: any[] = [];
     
     if (type === 'contacts') {
-      query = `
+      sql = `
         SELECT 
           id, external_id, source_type, 
           first_name, last_name, email, phone, title,
@@ -308,7 +308,7 @@ export async function getExternalData(type: 'contacts' | 'tickets' | 'deals', ac
       `;
       if (accountId) params = [accountId];
     } else if (type === 'tickets') {
-      query = `
+      sql = `
         SELECT 
           id, external_id, source_type, title, status, priority,
           reporter_email, created_date, resolved_date,
@@ -319,7 +319,7 @@ export async function getExternalData(type: 'contacts' | 'tickets' | 'deals', ac
       `;
       if (accountId) params = [accountId];
     } else if (type === 'deals') {
-      query = `
+      sql = `
         SELECT 
           id, external_id, source_type, name, amount, stage,
           close_date, owner_email,
@@ -331,7 +331,7 @@ export async function getExternalData(type: 'contacts' | 'tickets' | 'deals', ac
       if (accountId) params = [accountId];
     }
     
-    const result = await query(query, params);
+    const result = await query(sql, params);
     return result.rows;
   } catch (error) {
     console.error('Error fetching external data:', error);
