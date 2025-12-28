@@ -1,1 +1,11 @@
-{"version":4,"routes":{"/":{"experimentalBypassFor":[{"type":"header","key":"Next-Action"},{"type":"header","key":"content-type","value":"multipart/form-data;.*"}],"initialRevalidateSeconds":false,"srcRoute":"/","dataRoute":"/index.rsc","allowHeader":["host","x-matched-path","x-prerender-revalidate","x-prerender-revalidate-if-generated","x-next-revalidated-tags","x-next-revalidate-tag-token"]},"/signup":{"experimentalBypassFor":[{"type":"header","key":"Next-Action"},{"type":"header","key":"content-type","value":"multipart/form-data;.*"}],"initialRevalidateSeconds":false,"srcRoute":"/signup","dataRoute":"/signup.rsc","allowHeader":["host","x-matched-path","x-prerender-revalidate","x-prerender-revalidate-if-generated","x-next-revalidated-tags","x-next-revalidate-tag-token"]},"/login":{"experimentalBypassFor":[{"type":"header","key":"Next-Action"},{"type":"header","key":"content-type","value":"multipart/form-data;.*"}],"initialRevalidateSeconds":false,"srcRoute":"/login","dataRoute":"/login.rsc","allowHeader":["host","x-matched-path","x-prerender-revalidate","x-prerender-revalidate-if-generated","x-next-revalidated-tags","x-next-revalidate-tag-token"]}},"dynamicRoutes":{},"notFoundRoutes":[],"preview":{"previewModeId":"64a4e81a7ee51816f38921ceac02948f","previewModeSigningKey":"63472d0b6753117c5944e34746da35b133d47705400cd29216af26874ed0736d","previewModeEncryptionKey":"8c63f2f552114881941337bc59fa7e565bda1eafd23cf8f2e90531e410240537"}}
+{
+  "version": 4,
+  "routes": {},
+  "dynamicRoutes": {},
+  "notFoundRoutes": [],
+  "preview": {
+    "previewModeId": "166c5a3e4df1d32b61780155a0ced05e",
+    "previewModeSigningKey": "931e5b814ef9515e4966f4e57b810574288f03c80ce1588e48960591f25ce239",
+    "previewModeEncryptionKey": "e6821c7df849675a30ae74a87c7be22e1ae36cdf4da4551b290b6ff07b1f91b5"
+  }
+}
