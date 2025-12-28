@@ -13,6 +13,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(route)
   )
 
+  // Admin route requires super admin access (checked in the page itself)
+  const isAdminRoute = pathname.startsWith('/admin')
+
   // Get session token from cookies
   const token = request.cookies.get('session')?.value
   let sessionPayload = null

@@ -3,6 +3,274 @@
 import { query, getClient, setUserContext } from '@/lib/db'
 import { getSession } from './auth-local'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
+import bcrypt from 'bcryptjs'
+
+// ============================================================================
+// Super Admin Functions
+// ============================================================================
+
+/**
+ * Check if current user is super admin
+ */
+export async function isSuperAdmin() {
+  const session = await getSession()
+  if (!session) return false
+
+  const client = await getClient()
+  try {
+    const result = await client.query(
+      'SELECT is_super_admin FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+
+    return result.rows.length > 0 && result.rows[0].is_super_admin === true
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Get all users across all tenants (super admin only)
+ */
+export async function getAllUsers() {
+  const isAdmin = await isSuperAdmin()
+  if (!isAdmin) {
+    return { error: 'Unauthorized: Super admin access required' }
+  }
+
+  const client = await getClient()
+  try {
+    const result = await client.query(
+      `SELECT 
+        u.id,
+        u.email,
+        u.created_at as user_created_at,
+        p.full_name,
+        p.role,
+        p.is_active,
+        p.is_super_admin,
+        p.created_at as profile_created_at,
+        t.name as tenant_name,
+        t.slug as tenant_slug,
+        t.id as tenant_id
+       FROM users u
+       JOIN profiles p ON u.id = p.id
+       JOIN tenants t ON p.tenant_id = t.id
+       ORDER BY u.created_at DESC`
+    )
+
+    return { users: result.rows }
+  } catch (error: any) {
+    console.error('Get all users error:', error)
+    return { error: error.message || 'Failed to fetch users' }
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Get all tenants (super admin only)
+ */
+export async function getAllTenants() {
+  const isAdmin = await isSuperAdmin()
+  if (!isAdmin) {
+    return { error: 'Unauthorized: Super admin access required' }
+  }
+
+  const client = await getClient()
+  try {
+    const result = await client.query(
+      `SELECT 
+        id,
+        name,
+        slug,
+        is_active,
+        created_at,
+        (SELECT COUNT(*) FROM profiles WHERE tenant_id = tenants.id) as user_count
+       FROM tenants
+       ORDER BY created_at DESC`
+    )
+
+    return { tenants: result.rows }
+  } catch (error: any) {
+    console.error('Get all tenants error:', error)
+    return { error: error.message || 'Failed to fetch tenants' }
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Create a new user (super admin only)
+ */
+export async function createUser(formData: {
+  email: string
+  password: string
+  fullName: string
+  tenantId: string
+  role: 'Practitioner' | 'Contributor' | 'Viewer' | 'Tenant Admin'
+  isSuperAdmin?: boolean
+}) {
+  const isAdmin = await isSuperAdmin()
+  if (!isAdmin) {
+    return { error: 'Unauthorized: Super admin access required' }
+  }
+
+  const client = await getClient()
+
+  try {
+    await client.query('BEGIN')
+
+    // Check if user already exists
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [formData.email]
+    )
+
+    if (existingUser.rows.length > 0) {
+      await client.query('ROLLBACK')
+      return { error: 'User with this email already exists' }
+    }
+
+    // Verify tenant exists
+    const tenantCheck = await client.query(
+      'SELECT id FROM tenants WHERE id = $1',
+      [formData.tenantId]
+    )
+
+    if (tenantCheck.rows.length === 0) {
+      await client.query('ROLLBACK')
+      return { error: 'Tenant not found' }
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(formData.password, 10)
+
+    // Create user
+    const userResult = await client.query(
+      `INSERT INTO users (email, encrypted_password, email_confirmed_at)
+       VALUES ($1, $2, NOW())
+       RETURNING id`,
+      [formData.email, hashedPassword]
+    )
+
+    const userId = userResult.rows[0].id
+
+    // Create profile
+    await client.query(
+      `INSERT INTO profiles (id, tenant_id, role, full_name, is_active, is_super_admin)
+       VALUES ($1, $2, $3, $4, true, $5)`,
+      [userId, formData.tenantId, formData.role, formData.fullName, formData.isSuperAdmin || false]
+    )
+
+    await client.query('COMMIT')
+
+    revalidatePath('/admin')
+    return { success: true, userId }
+  } catch (error: any) {
+    await client.query('ROLLBACK')
+    console.error('Create user error:', error)
+    return { error: error.message || 'Failed to create user' }
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Update user role (super admin only)
+ */
+export async function updateUserRole(
+  userId: string,
+  role: 'Practitioner' | 'Contributor' | 'Viewer' | 'Tenant Admin',
+  isSuperAdmin?: boolean
+) {
+  const isAdmin = await isSuperAdmin()
+  if (!isAdmin) {
+    return { error: 'Unauthorized: Super admin access required' }
+  }
+
+  const client = await getClient()
+
+  try {
+    await client.query(
+      `UPDATE profiles 
+       SET role = $1, is_super_admin = $2, updated_at = NOW()
+       WHERE id = $3`,
+      [role, isSuperAdmin || false, userId]
+    )
+
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Update user role error:', error)
+    return { error: error.message || 'Failed to update user role' }
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Toggle user active status (super admin only)
+ */
+export async function toggleUserActive(userId: string, isActive: boolean) {
+  const isAdmin = await isSuperAdmin()
+  if (!isAdmin) {
+    return { error: 'Unauthorized: Super admin access required' }
+  }
+
+  const client = await getClient()
+
+  try {
+    await client.query(
+      'UPDATE profiles SET is_active = $1, updated_at = NOW() WHERE id = $2',
+      [isActive, userId]
+    )
+
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (error: any) {
+    console.error('Toggle user active error:', error)
+    return { error: error.message || 'Failed to update user status' }
+  } finally {
+    client.release()
+  }
+}
+
+/**
+ * Delete user (super admin only)
+ */
+export async function deleteUser(userId: string) {
+  const isAdmin = await isSuperAdmin()
+  if (!isAdmin) {
+    return { error: 'Unauthorized: Super admin access required' }
+  }
+
+  const client = await getClient()
+
+  try {
+    await client.query('BEGIN')
+
+    // Delete profile first (cascade will handle user due to FK)
+    await client.query('DELETE FROM profiles WHERE id = $1', [userId])
+    await client.query('DELETE FROM users WHERE id = $1', [userId])
+
+    await client.query('COMMIT')
+
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (error: any) {
+    await client.query('ROLLBACK')
+    console.error('Delete user error:', error)
+    return { error: error.message || 'Failed to delete user' }
+  } finally {
+    client.release()
+  }
+}
+
+// ============================================================================
+// Journey Stage Management (existing functions)
+// ============================================================================
 
 // Update journey stage properties
 export async function updateJourneyStage(stageId: string, data: {
