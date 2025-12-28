@@ -183,7 +183,7 @@ export async function createUser(formData: {
 export async function updateUserRole(
   userId: string,
   role: 'Practitioner' | 'Contributor' | 'Viewer' | 'Tenant Admin',
-  isSuperAdmin?: boolean
+  makeSuperAdmin?: boolean
 ) {
   const isAdmin = await isSuperAdmin()
   if (!isAdmin) {
@@ -197,7 +197,7 @@ export async function updateUserRole(
       `UPDATE profiles 
        SET role = $1, is_super_admin = $2, updated_at = NOW()
        WHERE id = $3`,
-      [role, isSuperAdmin || false, userId]
+      [role, makeSuperAdmin || false, userId]
     )
 
     revalidatePath('/admin')
