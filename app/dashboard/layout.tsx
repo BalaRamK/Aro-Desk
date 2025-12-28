@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getUserProfile, signOutAction } from '@/app/actions/auth-local'
+import { isSuperAdmin } from '@/app/actions/admin'
 import { getRecentAccounts } from '@/app/actions/dashboard'
 import { 
   LayoutDashboard, 
@@ -11,7 +12,8 @@ import {
   ChevronRight,
   Building2,
   LogOut,
-  Database
+  Database,
+  Shield
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -40,6 +42,7 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const profile = await getUserProfile()
+  const isAdmin = await isSuperAdmin()
   
   if (!profile) {
     redirect('/login')
@@ -127,6 +130,17 @@ export default async function DashboardLayout({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin" className="flex items-center">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem asChild>
                 <form action={signOutAction} className="w-full">
                   <button type="submit" className="flex items-center w-full">
