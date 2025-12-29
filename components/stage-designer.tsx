@@ -163,9 +163,11 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                 <Label htmlFor="name">Stage Name</Label>
                 <Input
                   id="name"
+                  name="stage_name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Onboarding, Adoption"
+                  autoComplete="off"
                   disabled={loading}
                 />
               </div>
@@ -173,6 +175,7 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                 <Label htmlFor="targetDays">Target Duration (days)</Label>
                 <Input
                   id="targetDays"
+                  name="target_days"
                   type="number"
                   value={formData.targetDurationDays}
                   onChange={(e) => {
@@ -180,6 +183,7 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                     setFormData({ ...formData, targetDurationDays: Number.isNaN(v) ? 1 : Math.max(1, v) })
                   }}
                   min="1"
+                  autoComplete="off"
                   disabled={loading}
                 />
               </div>
@@ -188,10 +192,12 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                 <div className="flex items-center gap-2">
                   <input
                     id="color"
+                    name="color_hex"
                     type="color"
                     value={formData.colorHex}
                     onChange={(e) => setFormData({ ...formData, colorHex: e.target.value })}
                     className="h-10 w-20 cursor-pointer rounded border"
+                    autoComplete="off"
                     disabled={loading}
                   />
                   <span className="text-sm text-slate-500">{formData.colorHex}</span>

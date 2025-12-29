@@ -110,7 +110,7 @@ export function MilestoneManager({ stages }: MilestoneManagerProps) {
         </CardHeader>
         <CardContent>
           <Select value={selectedStageId} onValueChange={setSelectedStageId}>
-            <SelectTrigger>
+            <SelectTrigger id="milestone_stage" aria-labelledby="milestone_stage_label">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -134,7 +134,7 @@ export function MilestoneManager({ stages }: MilestoneManagerProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <div>
-              <CardTitle>
+              <CardTitle id="milestone_stage_label">
                 Milestones for {selectedStage.name}
               </CardTitle>
               <CardDescription>
@@ -162,22 +162,26 @@ export function MilestoneManager({ stages }: MilestoneManagerProps) {
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">Milestone Name</Label>
+                    <Label htmlFor="milestone_name">Milestone Name</Label>
                     <Input
-                      id="name"
+                      id="milestone_name"
+                      name="milestone_name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g., Complete training, Setup SSO"
+                      autoComplete="off"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="milestone_description">Description</Label>
                     <Textarea
-                      id="description"
+                      id="milestone_description"
+                      name="milestone_description"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="What does successful completion look like?"
                       rows={4}
+                      autoComplete="off"
                     />
                   </div>
                   <Button type="submit" className="w-full">
