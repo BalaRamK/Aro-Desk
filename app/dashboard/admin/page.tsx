@@ -25,15 +25,16 @@ export default async function AdminPanelPage() {
       </div>
 
       <Tabs defaultValue="stages" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="stages" className="flex items-center gap-2">
             <Layers className="h-4 w-4" />
             Stage Designer
           </TabsTrigger>
-          <TabsTrigger value="milestones" className="flex items-center gap-2">
+          {/* Disabled until migration 07 runs */}
+          {/* <TabsTrigger value="milestones" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
             Milestones
-          </TabsTrigger>
+          </TabsTrigger> */}
           <TabsTrigger value="health" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Health Score
@@ -44,9 +45,10 @@ export default async function AdminPanelPage() {
           <StageDesigner stages={stages} />
         </TabsContent>
 
-        <TabsContent value="milestones" className="space-y-6">
+        {/* Disabled until migration 07 runs */}
+        {/* <TabsContent value="milestones" className="space-y-6">
           <MilestoneManager stages={stages} />
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="health" className="space-y-6">
           <HealthScoreWeighting weighting={weighting} />

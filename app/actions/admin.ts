@@ -508,11 +508,21 @@ export async function createMilestone(data: {
     await client.query('BEGIN')
     await setUserContext(session.userId, client)
 
+    // Resolve tenant_id from current user's profile
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+
     const result = await client.query(
-      `INSERT INTO stage_milestones (stage_id, name, description, "order")
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO stage_milestones (stage_id, tenant_id, name, description, "order")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [data.stageId, data.name, data.description, data.order]
+      [data.stageId, tenantId, data.name, data.description, data.order]
     )
 
     await client.query('COMMIT')
