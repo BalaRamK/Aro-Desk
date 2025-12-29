@@ -77,12 +77,14 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
           targetDurationDays: formData.targetDurationDays,
           colorHex: formData.colorHex
         })
+        // Map DB columns to component interface
+        const returnedStage = newStage as any
         setStages([...stages, {
-          id: newStage.id,
-          name: (newStage as any).display_name ?? (newStage as any).stage ?? formData.name,
-          display_order: (newStage as any).display_order,
-          target_duration_days: (newStage as any).target_duration_days,
-          color_hex: (newStage as any).color_hex,
+          id: returnedStage.id,
+          name: returnedStage.display_name || formData.name,
+          display_order: returnedStage.display_order,
+          target_duration_days: returnedStage.target_duration_days,
+          color_hex: returnedStage.color_hex,
           account_count: 0
         }])
       }
