@@ -34,6 +34,7 @@ interface Account {
 interface Stage {
   id: string
   name: string
+  stage?: string
   display_order: number
   target_duration_days: number
   color_hex: string
@@ -94,14 +95,15 @@ export function JourneyKanbanClient({ stages, accounts }: JourneyKanbanClientPro
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages.map((stage) => {
-          // Match accounts using the canonical stage value, not display name
-          const stageAccounts = accountsState.filter((acc) => acc.current_stage === stage.stage)
+          const canonicalStage = stage.stage ?? stage.name
+          // Match accounts using the canonical stage value
+          const stageAccounts = accountsState.filter((acc) => acc.current_stage === canonicalStage)
           
           return (
             <KanbanColumn
               key={stage.id}
-              id={stage.stage}
-              title={stage.name ?? stage.stage}
+              id={canonicalStage}
+              title={stage.name ?? canonicalStage}
               count={stageAccounts.length}
               targetDays={stage.target_duration_days}
               avgDays={stage.avg_duration_days}
