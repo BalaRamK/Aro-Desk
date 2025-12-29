@@ -79,10 +79,10 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
         })
         setStages([...stages, {
           id: newStage.id,
-          name: newStage.name,
-          display_order: newStage.display_order,
-          target_duration_days: newStage.target_duration_days,
-          color_hex: newStage.color_hex,
+          name: (newStage as any).display_name ?? (newStage as any).stage ?? formData.name,
+          display_order: (newStage as any).display_order,
+          target_duration_days: (newStage as any).target_duration_days,
+          color_hex: (newStage as any).color_hex,
           account_count: 0
         }])
       }
@@ -173,7 +173,10 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                   id="targetDays"
                   type="number"
                   value={formData.targetDurationDays}
-                  onChange={(e) => setFormData({ ...formData, targetDurationDays: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value)
+                    setFormData({ ...formData, targetDurationDays: Number.isNaN(v) ? 1 : Math.max(1, v) })
+                  }}
                   min="1"
                   disabled={loading}
                 />

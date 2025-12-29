@@ -123,10 +123,19 @@ export async function createIntegrationSource(data: {
   await setUserContext(session.userId)
   
   try {
+    // Resolve tenant_id from current user's profile
+    const tenantRes = await query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
     const result = await query(
       `INSERT INTO integration_sources 
-       (source_type, name, description, config, n8n_workflow_id, n8n_webhook_url)
-       VALUES ($1, $2, $3, $4, $5, $6)
+       (source_type, name, description, config, n8n_workflow_id, n8n_webhook_url, tenant_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         data.source_type,
@@ -135,6 +144,7 @@ export async function createIntegrationSource(data: {
         JSON.stringify(data.config),
         data.n8n_workflow_id,
         data.n8n_webhook_url,
+        tenantId,
       ]
     );
     

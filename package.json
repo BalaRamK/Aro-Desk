@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:migrate:06": "node scripts/run-sql.js database/migrations/06_relax_stage_enum.sql"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

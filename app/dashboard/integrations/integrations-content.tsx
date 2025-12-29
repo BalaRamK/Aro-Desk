@@ -475,6 +475,7 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               Cancel
             </Button>
             <Button type="submit">Create Integration</Button>
+              autoComplete="current-password"
           </div>
         </form>
       </DialogContent>
