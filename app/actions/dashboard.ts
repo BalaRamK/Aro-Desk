@@ -359,7 +359,17 @@ export async function getJourneyStages() {
   await setUserContext(session.userId)
   
   const result = await query(`
-    SELECT *
+    SELECT 
+      id,
+      stage,
+      display_name,
+      display_name as name,
+      display_order,
+      target_duration_days,
+      color_hex,
+      tenant_id,
+      is_active,
+      created_at
     FROM journey_stages
     ORDER BY display_order
   `)

@@ -95,9 +95,9 @@ export function HealthScoreWeighting({ weighting: initialWeighting }: HealthScor
             <div key={component.key} className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                  <label htmlFor={`weight-${component.key}`} className="font-medium text-slate-900 dark:text-slate-100">
                     {component.label}
-                  </p>
+                  </label>
                   <p className="text-sm text-slate-500">{component.description}</p>
                 </div>
                 <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -106,8 +106,11 @@ export function HealthScoreWeighting({ weighting: initialWeighting }: HealthScor
               </div>
               <div className="flex items-center gap-3">
                 <Input
+                  id={`weight-${component.key}`}
+                  name={`weight_${component.key}`}
                   type="range"
                   min="0"
+                  aria-label={`${component.label} weight percentage`}
                   max="100"
                   step="1"
                   value={weights[component.key]}
@@ -115,12 +118,15 @@ export function HealthScoreWeighting({ weighting: initialWeighting }: HealthScor
                   className="flex-1"
                 />
                 <Input
+                  id={`weight-number-${component.key}`}
+                  name={`weight_number_${component.key}`}
                   type="number"
                   min="0"
                   max="100"
                   value={weights[component.key].toFixed(1)}
                   onChange={(e) => handleChange(component.key, parseFloat(e.target.value))}
                   className="w-20"
+                  aria-label={`${component.label} weight percentage number input`}
                 />
               </div>
             </div>
