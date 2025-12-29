@@ -1,7 +1,9 @@
 'use server';
 
-import { query } from '@/lib/db';
+import { query, setUserContext } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { getSession } from './auth-local';
+import { redirect } from 'next/navigation';
 
 export type IntegrationType = 'jira' | 'zoho_crm' | 'zoho_desk' | 'salesforce' | 'hubspot' | 'zendesk' | 'intercom' | 'slack' | 'custom';
 
@@ -115,11 +117,16 @@ export async function createIntegrationSource(data: {
   n8n_workflow_id?: string;
   n8n_webhook_url?: string;
 }) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
   try {
     const result = await query(
       `INSERT INTO integration_sources 
-       (source_type, name, description, config, n8n_workflow_id, n8n_webhook_url, tenant_id)
-       VALUES ($1, $2, $3, $4, $5, $6, requesting_tenant_id())
+       (source_type, name, description, config, n8n_workflow_id, n8n_webhook_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
       [
         data.source_type,

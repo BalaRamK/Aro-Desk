@@ -32,7 +32,7 @@ const navigation = [
   { name: 'Account360', href: '/dashboard/accounts', icon: Users },
   { name: 'Customer Journey', href: '/dashboard/journey', icon: Route },
   { name: 'Integrations', href: '/dashboard/integrations', icon: Database },
-  { name: 'Admin Panel', href: '/dashboard/admin', icon: Settings },
+  { name: 'CS Handbook', href: '/dashboard/admin', icon: Settings },
   { name: 'Automation', href: '/dashboard/automation', icon: Zap },
 ]
 
@@ -135,7 +135,7 @@ export default async function DashboardLayout({
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="flex items-center">
                       <Shield className="mr-2 h-4 w-4" />
-                      <span>Admin Panel</span>
+                      <span>CS Handbook</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

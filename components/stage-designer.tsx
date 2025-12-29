@@ -173,7 +173,7 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                   id="targetDays"
                   type="number"
                   value={formData.targetDurationDays}
-                  onChange={(e) => setFormData({ ...formData, targetDurationDays: parseInt(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, targetDurationDays: parseInt(e.target.value) || 0 })}
                   min="1"
                   disabled={loading}
                 />
