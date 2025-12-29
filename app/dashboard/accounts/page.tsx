@@ -1,9 +1,11 @@
 import { getAccounts, getJourneyStages } from '@/app/actions/dashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { AccountActions } from '@/components/account-manager'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 
 export default async function AccountsListPage({ searchParams }: { searchParams?: Promise<{ q?: string; health?: string; stage?: string; start?: string; end?: string; range?: string }> }) {
   const sp = await searchParams ?? {}
@@ -48,13 +50,21 @@ export default async function AccountsListPage({ searchParams }: { searchParams?
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Account360
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">
-          View and manage all customer accounts with hierarchical structure
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+            Account360
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
+            View and manage all customer accounts with hierarchical structure
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/dashboard/accounts/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Account
+          </Link>
+        </Button>
       </div>
 
       {/* Filters */}
@@ -139,6 +149,7 @@ export default async function AccountsListPage({ searchParams }: { searchParams?
                 <TableHead title="Annual recurring revenue from CRM">ARR</TableHead>
                 <TableHead title="Lifecycle-adjusted overall health">Health Score</TableHead>
                 <TableHead title="Assigned customer success manager">CSM</TableHead>
+                <TableHead className="w-20">Actions</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -187,6 +198,9 @@ export default async function AccountsListPage({ searchParams }: { searchParams?
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">
                     {account.csm_name || 'Unassigned'}
+                  </TableCell>
+                  <TableCell>
+                    <AccountActions account={account} />
                   </TableCell>
                   <TableCell>
                     <Link href={`/dashboard/accounts/${account.id}`}>

@@ -537,6 +537,126 @@ export async function createAccount(formData: FormData) {
   }
 }
 
+// Update account details (name, ARR, status)
+export async function updateAccount(accountId: string, data: {
+  name?: string
+  arr?: number | null
+  status?: string
+}) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const updates: string[] = []
+  const params: any[] = [accountId]
+  let paramCount = 1
+  
+  if (data.name?.trim()) {
+    updates.push(`name = $${++paramCount}`)
+    params.push(data.name)
+  }
+  if (data.arr !== undefined) {
+    updates.push(`arr = $${++paramCount}`)
+    params.push(data.arr)
+  }
+  if (data.status) {
+    updates.push(`status = $${++paramCount}`)
+    params.push(data.status)
+  }
+  
+  if (updates.length === 0) return { success: true }
+  
+  try {
+    await query(
+      `UPDATE accounts SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1`,
+      params
+    )
+    revalidatePath('/dashboard/accounts')
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating account:', error)
+    throw error
+  }
+}
+
+// Delete an account and its related data
+export async function deleteAccount(accountId: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    
+    // Delete journey history
+    await client.query(`DELETE FROM journey_history WHERE account_id = $1`, [accountId])
+    
+    // Delete health scores
+    await client.query(`DELETE FROM health_scores WHERE account_id = $1`, [accountId])
+    
+    // Delete contacts/sub-accounts if any
+    await client.query(`DELETE FROM accounts WHERE parent_id = $1`, [accountId])
+    
+    // Delete main account
+    await client.query(`DELETE FROM accounts WHERE id = $1`, [accountId])
+    
+    await client.query('COMMIT')
+    
+    revalidatePath('/dashboard/accounts')
+    return { success: true }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error deleting account:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+// Get a single account with journey and health info
+export async function getAccount(accountId: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    SELECT 
+      a.*,
+      (SELECT to_stage FROM journey_history WHERE account_id = $1 ORDER BY entered_at DESC LIMIT 1) as current_stage,
+      (SELECT COUNT(*) FROM journey_history WHERE account_id = $1) as stage_changes,
+      (SELECT overall_score FROM health_scores WHERE account_id = $1 ORDER BY calculated_at DESC LIMIT 1) as health_score
+    FROM accounts a
+    WHERE a.id = $1
+  `, [accountId])
+  
+  return result.rows[0] || null
+}
+
+// Get journey history for an account
+export async function getAccountJourneyHistory(accountId: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  await setUserContext(session.userId)
+  
+  const result = await query(`
+    SELECT 
+      jh.*,
+      p.full_name as changed_by_name
+    FROM journey_history jh
+    LEFT JOIN profiles p ON jh.changed_by = p.id
+    WHERE jh.account_id = $1
+    ORDER BY jh.entered_at DESC
+  `, [accountId])
+  
+  return result.rows
+}
+
 // Get playbooks with execution stats
 export async function getPlaybooks() {
   const session = await getSession()

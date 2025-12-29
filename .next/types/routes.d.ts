@@ -4,7 +4,7 @@
 type AppRoutes = "/" | "/admin" | "/dashboard" | "/dashboard/accounts" | "/dashboard/accounts/[id]" | "/dashboard/accounts/new" | "/dashboard/admin" | "/dashboard/automation" | "/dashboard/executive" | "/dashboard/integrations" | "/dashboard/journey" | "/forgot-password" | "/login" | "/signup"
 type AppRouteHandlerRoutes = "/api/ai/sentiment" | "/api/webhooks/n8n"
 type PageRoutes = never
-type LayoutRoutes = "/" | "/admin" | "/dashboard"
+type LayoutRoutes = "/" | "/admin" | "/dashboard" | "/dashboard/accounts/[id]"
 type RedirectRoutes = never
 type RewriteRoutes = never
 type Routes = AppRoutes | PageRoutes | LayoutRoutes | RedirectRoutes | RewriteRoutes | AppRouteHandlerRoutes
@@ -36,6 +36,7 @@ interface LayoutSlotMap {
   "/": never
   "/admin": never
   "/dashboard": never
+  "/dashboard/accounts/[id]": never
 }
 
 
