@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Edit2, Trash2, CheckCircle, Circle } from 'lucide-react'
+import { getStageMilestones, createMilestone, updateMilestone, deleteMilestone } from '@/app/actions/admin'
 
 interface Stage {
   id: string
@@ -55,7 +56,22 @@ export function MilestoneManager({ stages }: MilestoneManagerProps) {
 
   const selectedStage = stages.find(s => s.id === selectedStageId)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Load milestones when stage changes
+  async function loadMilestones(stageId: string) {
+    try {
+      const rows = await getStageMilestones(stageId)
+      setMilestones(rows as any)
+    } catch (err) {
+      console.error('Failed to load milestones', err)
+    }
+  }
+
+  // initial and on change load
+  React.useEffect(() => {
+    if (selectedStageId) loadMilestones(selectedStageId)
+  }, [selectedStageId])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!formData.name.trim()) {
@@ -63,25 +79,28 @@ export function MilestoneManager({ stages }: MilestoneManagerProps) {
       return
     }
 
-    if (editingMilestone) {
-      setMilestones(milestones.map(m => m.id === editingMilestone.id ? {
-        ...m,
-        name: formData.name,
-        description: formData.description
-      } : m))
-    } else {
-      const newMilestone: Milestone = {
-        id: crypto.randomUUID(),
-        name: formData.name,
-        description: formData.description,
-        order: Math.max(...milestones.map(m => m.order), 0) + 1
+    try {
+      if (editingMilestone) {
+        await updateMilestone(editingMilestone.id, {
+          name: formData.name,
+          description: formData.description,
+        })
+      } else {
+        const nextOrder = Math.max(...milestones.map(m => m.order), 0) + 1
+        await createMilestone({
+          stageId: selectedStageId,
+          name: formData.name,
+          description: formData.description,
+          order: nextOrder,
+        })
       }
-      setMilestones([...milestones, newMilestone])
+      await loadMilestones(selectedStageId)
+      setOpen(false)
+      setEditingMilestone(null)
+      setFormData({ name: '', description: '' })
+    } catch (err) {
+      alert('Failed to save milestone')
     }
-
-    setOpen(false)
-    setEditingMilestone(null)
-    setFormData({ name: '', description: '' })
   }
 
   const handleEdit = (milestone: Milestone) => {
@@ -93,9 +112,14 @@ export function MilestoneManager({ stages }: MilestoneManagerProps) {
     setOpen(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this milestone?')) {
-      setMilestones(milestones.filter(m => m.id !== id))
+      try {
+        await deleteMilestone(id)
+        await loadMilestones(selectedStageId)
+      } catch (err) {
+        alert('Failed to delete milestone')
+      }
     }
   }
 

@@ -79,14 +79,22 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
         })
         // Map DB columns to component interface
         const returnedStage = newStage as any
-        setStages([...stages, {
+        const idx = stages.findIndex(s => s.id === returnedStage.id || s.name.toLowerCase() === (returnedStage.display_name || '').toLowerCase())
+        const mapped = {
           id: returnedStage.id,
           name: returnedStage.display_name || formData.name,
           display_order: returnedStage.display_order,
           target_duration_days: returnedStage.target_duration_days,
           color_hex: returnedStage.color_hex,
           account_count: 0
-        }])
+        } as Stage
+        if (idx >= 0) {
+          const next = [...stages]
+          next[idx] = mapped
+          setStages(next)
+        } else {
+          setStages([...stages, mapped])
+        }
       }
 
       setOpen(false)

@@ -282,12 +282,11 @@ export async function updateJourneyStage(stageId: string, data: {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
   const client = await getClient()
   
   try {
     await client.query('BEGIN')
+    await setUserContext(session.userId, client)
     
     const updates = []
     const params: any[] = [stageId]
@@ -337,12 +336,15 @@ export async function createJourneyStage(data: {
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
-  
-  await setUserContext(session.userId)
+
+  const client = await getClient()
   
   try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
     // Resolve tenant_id from current user's profile
-    const tenantRes = await query<{ tenant_id: string }>(
+    const tenantRes = await client.query<{ tenant_id: string }>(
       'SELECT tenant_id FROM profiles WHERE id = $1',
       [session.userId]
     )
@@ -351,18 +353,27 @@ export async function createJourneyStage(data: {
       throw new Error('Unable to resolve tenant for current user')
     }
     
-    const result = await query(
+    const result = await client.query(
       `INSERT INTO journey_stages (stage, display_name, display_order, target_duration_days, color_hex, tenant_id)
        VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (tenant_id, stage)
+       DO UPDATE SET
+         display_name = EXCLUDED.display_name,
+         target_duration_days = EXCLUDED.target_duration_days,
+         color_hex = EXCLUDED.color_hex
        RETURNING *`,
       [data.name, data.name, data.displayOrder, data.targetDurationDays, data.colorHex, tenantId]
     )
     
+    await client.query('COMMIT')
     revalidatePath('/dashboard/admin')
     return result.rows[0]
   } catch (error) {
+    await client.query('ROLLBACK')
     console.error('Error creating journey stage:', error)
     throw error
+  } finally {
+    client.release()
   }
 }
 
@@ -371,12 +382,11 @@ export async function deleteJourneyStage(stageId: string) {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
   const client = await getClient()
   
   try {
     await client.query('BEGIN')
+    await setUserContext(session.userId, client)
     
     // Get the stage name
     const stageResult = await client.query(
@@ -493,16 +503,27 @@ export async function createMilestone(data: {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
-  const result = await query(
-    `INSERT INTO stage_milestones (stage_id, name, description, \`order\`)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [data.stageId, data.name, data.description, data.order]
-  )
-  
-  return result.rows[0]
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const result = await client.query(
+      `INSERT INTO stage_milestones (stage_id, name, description, "order")
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [data.stageId, data.name, data.description, data.order]
+    )
+
+    await client.query('COMMIT')
+    return result.rows[0]
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Create milestone error:', error)
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 // Get milestones for stage
@@ -510,14 +531,25 @@ export async function getStageMilestones(stageId: string) {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
-  const result = await query(
-    `SELECT * FROM stage_milestones WHERE stage_id = $1 ORDER BY \`order\``,
-    [stageId]
-  )
-  
-  return result.rows
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const result = await client.query(
+      `SELECT * FROM stage_milestones WHERE stage_id = $1 ORDER BY "order"`,
+      [stageId]
+    )
+
+    await client.query('COMMIT')
+    return result.rows
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Get milestones error:', error)
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 // Update milestone
@@ -529,33 +561,44 @@ export async function updateMilestone(milestoneId: string, data: {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
-  const updates = []
-  const params: any[] = [milestoneId]
-  let paramCount = 1
-  
-  if (data.name) {
-    updates.push(`name = $${++paramCount}`)
-    params.push(data.name)
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const updates = []
+    const params: any[] = [milestoneId]
+    let paramCount = 1
+    
+    if (data.name) {
+      updates.push(`name = $${++paramCount}`)
+      params.push(data.name)
+    }
+    if (data.description) {
+      updates.push(`description = $${++paramCount}`)
+      params.push(data.description)
+    }
+    if (data.order !== undefined) {
+      updates.push(`"order" = $${++paramCount}`)
+      params.push(data.order)
+    }
+    
+    if (updates.length > 0) {
+      await client.query(
+        `UPDATE stage_milestones SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1`,
+        params
+      )
+    }
+
+    await client.query('COMMIT')
+    return { success: true }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Update milestone error:', error)
+    throw error
+  } finally {
+    client.release()
   }
-  if (data.description) {
-    updates.push(`description = $${++paramCount}`)
-    params.push(data.description)
-  }
-  if (data.order !== undefined) {
-    updates.push(`\`order\` = $${++paramCount}`)
-    params.push(data.order)
-  }
-  
-  if (updates.length > 0) {
-    await query(
-      `UPDATE stage_milestones SET ${updates.join(', ')} WHERE id = $1`,
-      params
-    )
-  }
-  
-  return { success: true }
 }
 
 // Delete milestone
@@ -563,9 +606,18 @@ export async function deleteMilestone(milestoneId: string) {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
-  await query('DELETE FROM stage_milestones WHERE id = $1', [milestoneId])
-  
-  return { success: true }
+  const client = await getClient()
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    await client.query('DELETE FROM stage_milestones WHERE id = $1', [milestoneId])
+    await client.query('COMMIT')
+    return { success: true }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Delete milestone error:', error)
+    throw error
+  } finally {
+    client.release()
+  }
 }
