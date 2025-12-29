@@ -340,14 +340,30 @@ export async function createJourneyStage(data: {
   
   await setUserContext(session.userId)
   
-  const result = await query(
-    `INSERT INTO journey_stages (stage, display_name, display_order, target_duration_days, color_hex)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-    [data.name, data.name, data.displayOrder, data.targetDurationDays, data.colorHex]
-  )
-  
-  return result.rows[0]
+  try {
+    // Resolve tenant_id from current user's profile
+    const tenantRes = await query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+    
+    const result = await query(
+      `INSERT INTO journey_stages (stage, display_name, display_order, target_duration_days, color_hex, tenant_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [data.name, data.name, data.displayOrder, data.targetDurationDays, data.colorHex, tenantId]
+    )
+    
+    revalidatePath('/dashboard/admin')
+    return result.rows[0]
+  } catch (error) {
+    console.error('Error creating journey stage:', error)
+    throw error
+  }
 }
 
 // Delete journey stage

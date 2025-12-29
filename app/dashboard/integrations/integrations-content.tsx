@@ -91,7 +91,10 @@ export default function IntegrationsContent() {
     try {
       const res = await provisionN8nWebhook(id, { name: `CS Auto ${id}` });
       if ((res as any).error) {
-        alert((res as any).error);
+        const message = (res as any).suggestion 
+          ? `${(res as any).error}\n\n${(res as any).suggestion}`
+          : (res as any).error;
+        alert(message);
         return;
       }
       const { webhookUrl } = res as { webhookUrl?: string };
@@ -467,6 +470,7 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               placeholder="Your API key or token"
               value={formData.api_key}
               onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
+              autoComplete="off"
             />
           </div>
 
@@ -475,7 +479,6 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               Cancel
             </Button>
             <Button type="submit">Create Integration</Button>
-              autoComplete="current-password"
           </div>
         </form>
       </DialogContent>

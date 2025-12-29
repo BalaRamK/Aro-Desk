@@ -227,10 +227,16 @@ export async function provisionN8nWebhook(
   const basicPass = process.env.N8N_BASIC_AUTH_PASSWORD;
 
   if (!apiUrl) {
-    return { error: 'N8N_API_URL is not set' };
+    return { 
+      error: 'N8N_API_URL not configured',
+      suggestion: 'Set N8N_API_URL in .env.local to enable auto-provisioning, or manually add the webhook URL in the Integration form.'
+    };
   }
   if (!apiKey && !(basicUser && basicPass)) {
-    return { error: 'Provide N8N_API_KEY or N8N_BASIC_AUTH_USER/N8N_BASIC_AUTH_PASSWORD' };
+    return { 
+      error: 'N8N authentication not configured',
+      suggestion: 'Set N8N_API_KEY or (N8N_BASIC_AUTH_USER + N8N_BASIC_AUTH_PASSWORD) in .env.local to enable auto-provisioning.'
+    };
   }
 
   const cleanApiUrl = apiUrl.replace(/\/$/, '');
