@@ -400,7 +400,7 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               value={formData.source_type}
               onValueChange={(value) => setFormData({ ...formData, source_type: value as IntegrationType })}
             >
-              <SelectTrigger>
+              <SelectTrigger id="source_type" aria-labelledby="source_type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -424,6 +424,7 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               placeholder="e.g., Zoho CRM Production"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              autoComplete="organization"
               required
             />
           </div>
@@ -446,6 +447,7 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               placeholder="http://localhost:5678/webhook/zoho-crm-sync"
               value={formData.n8n_webhook_url}
               onChange={(e) => setFormData({ ...formData, n8n_webhook_url: e.target.value })}
+              autoComplete="url"
             />
             <p className="text-xs text-muted-foreground">
               The webhook URL from your n8n workflow. You can generate this automatically after creating the integration.
@@ -459,6 +461,7 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
               placeholder="https://api.zoho.com/crm/v2"
               value={formData.api_url}
               onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
+              autoComplete="url"
             />
           </div>
 
