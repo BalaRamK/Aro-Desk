@@ -437,16 +437,15 @@ function AddIntegrationDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="n8n_webhook_url">n8n Webhook URL</Label>
+            <Label htmlFor="n8n_webhook_url">n8n Webhook URL (Optional)</Label>
             <Input
               id="n8n_webhook_url"
               placeholder="http://localhost:5678/webhook/zoho-crm-sync"
               value={formData.n8n_webhook_url}
               onChange={(e) => setFormData({ ...formData, n8n_webhook_url: e.target.value })}
-              required
             />
             <p className="text-xs text-muted-foreground">
-              The webhook URL from your n8n workflow that will handle the sync
+              The webhook URL from your n8n workflow. You can generate this automatically after creating the integration.
             </p>
           </div>
 

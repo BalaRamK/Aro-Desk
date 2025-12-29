@@ -294,7 +294,7 @@ export async function updateJourneyStage(stageId: string, data: {
     let paramCount = 1
     
     if (data.name) {
-      updates.push(`name = $${++paramCount}`)
+      updates.push(`display_name = $${++paramCount}`)
       params.push(data.name)
     }
     if (data.displayOrder !== undefined) {
@@ -341,10 +341,10 @@ export async function createJourneyStage(data: {
   await setUserContext(session.userId)
   
   const result = await query(
-    `INSERT INTO journey_stages (name, display_order, target_duration_days, color_hex)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO journey_stages (stage, display_name, display_order, target_duration_days, color_hex)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [data.name, data.displayOrder, data.targetDurationDays, data.colorHex]
+    [data.name, data.name, data.displayOrder, data.targetDurationDays, data.colorHex]
   )
   
   return result.rows[0]
