@@ -485,12 +485,12 @@ export async function createAccount(formData: FormData) {
   const status = formData.get('status')?.toString() || 'Active'
 
   if (!name || !stage) {
-    return { error: 'Name and stage are required' }
+    throw new Error('Name and stage are required')
   }
 
   const arr = arrRaw ? Number(arrRaw) : null
   if (arrRaw && Number.isNaN(arr)) {
-    return { error: 'ARR must be a number' }
+    throw new Error('ARR must be a number')
   }
 
   const client = await getClient()
@@ -521,7 +521,7 @@ export async function createAccount(formData: FormData) {
   } catch (error) {
     await client.query('ROLLBACK')
     console.error('Error creating account:', error)
-    return { error: 'Failed to create account' }
+    throw error
   } finally {
     client.release()
   }
