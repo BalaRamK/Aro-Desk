@@ -10,6 +10,11 @@ n8n is a workflow automation tool that can be integrated with the platform to:
 - Integrate with external systems (email, Slack, CRM, etc.)
 - Create complex multi-step automations
 
+## Webhook quick answers
+- **What is it?** A webhook is the public URL n8n exposes to receive events (e.g., journey updates, health score changes) and kick off a workflow.
+- **How do I get it?** In n8n, add a “Webhook” trigger node → copy the Production URL (or Test URL while building). Paste that into the platform env/config where `N8N_WEBHOOK_URL` is referenced.
+- **Can this be automatic?** We can automate by calling the n8n REST API to create a workflow and read its webhook URL during setup; today it’s manual. If you want this automated, we can add a small setup step that provisions a default workflow and stores the URL.
+
 ## Setup Options
 
 ### Option 1: Self-Hosted n8n (Recommended)

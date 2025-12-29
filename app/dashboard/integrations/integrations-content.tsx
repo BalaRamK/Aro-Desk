@@ -11,6 +11,7 @@ import {
   deleteIntegrationSource,
   triggerSync,
   getSyncLogs,
+  provisionN8nWebhook,
   type IntegrationSource,
   type IntegrationStats,
 } from '@/app/actions/integrations';
@@ -83,6 +84,21 @@ export default function IntegrationsContent() {
       setTimeout(loadData, 1000);
     } catch (error) {
       alert('Failed to trigger sync');
+    }
+  };
+
+  const handleProvision = async (id: string) => {
+    try {
+      const res = await provisionN8nWebhook(id, { name: `CS Auto ${id}` });
+      if ((res as any).error) {
+        alert((res as any).error);
+        return;
+      }
+      const { webhookUrl } = res as { webhookUrl?: string };
+      alert(`Webhook generated${webhookUrl ? `: ${webhookUrl}` : ''}`);
+      loadData();
+    } catch (error) {
+      alert('Failed to generate webhook');
     }
   };
 
@@ -216,6 +232,14 @@ export default function IntegrationsContent() {
                   </div>
                   
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleProvision(integration.id)}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Generate n8n Webhook
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

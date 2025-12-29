@@ -15,6 +15,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Plus, Edit2, Trash2, GripVertical } from 'lucide-react'
+import { updateJourneyStage, createJourneyStage, deleteJourneyStage } from '@/app/actions/admin'
+import { useRouter } from 'next/navigation'
 
 interface Stage {
   id: string
@@ -33,44 +35,67 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
   const [stages, setStages] = useState(initialStages)
   const [open, setOpen] = useState(false)
   const [editingStage, setEditingStage] = useState<Stage | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: '',
     targetDurationDays: 30,
     colorHex: '#3b82f6'
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoading(true)
+    setError(null)
     
     if (!formData.name.trim()) {
-      alert('Stage name is required')
+      setError('Stage name is required')
+      setLoading(false)
       return
     }
 
-    if (editingStage) {
-      // Update existing stage
-      setStages(stages.map(s => s.id === editingStage.id ? {
-        ...s,
-        name: formData.name,
-        target_duration_days: formData.targetDurationDays,
-        color_hex: formData.colorHex
-      } : s))
-    } else {
-      // Create new stage
-      const newStage: Stage = {
-        id: crypto.randomUUID(),
-        name: formData.name,
-        display_order: Math.max(...stages.map(s => s.display_order), 0) + 1,
-        target_duration_days: formData.targetDurationDays,
-        color_hex: formData.colorHex,
-        account_count: 0
+    try {
+      if (editingStage) {
+        // Update existing stage
+        await updateJourneyStage(editingStage.id, {
+          name: formData.name,
+          targetDurationDays: formData.targetDurationDays,
+          colorHex: formData.colorHex
+        })
+        setStages(stages.map(s => s.id === editingStage.id ? {
+          ...s,
+          name: formData.name,
+          target_duration_days: formData.targetDurationDays,
+          color_hex: formData.colorHex
+        } : s))
+      } else {
+        // Create new stage
+        const newStage = await createJourneyStage({
+          name: formData.name,
+          displayOrder: Math.max(...stages.map(s => s.display_order), 0) + 1,
+          targetDurationDays: formData.targetDurationDays,
+          colorHex: formData.colorHex
+        })
+        setStages([...stages, {
+          id: newStage.id,
+          name: newStage.name,
+          display_order: newStage.display_order,
+          target_duration_days: newStage.target_duration_days,
+          color_hex: newStage.color_hex,
+          account_count: 0
+        }])
       }
-      setStages([...stages, newStage])
-    }
 
-    setOpen(false)
-    setEditingStage(null)
-    setFormData({ name: '', targetDurationDays: 30, colorHex: '#3b82f6' })
+      setOpen(false)
+      setEditingStage(null)
+      setFormData({ name: '', targetDurationDays: 30, colorHex: '#3b82f6' })
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save stage')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleEdit = (stage: Stage) => {
@@ -83,9 +108,18 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
     setOpen(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this stage?')) {
-      setStages(stages.filter(s => s.id !== id))
+      setLoading(true)
+      try {
+        await deleteJourneyStage(id)
+        setStages(stages.filter(s => s.id !== id))
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete stage')
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -117,6 +151,11 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                 Define a stage in your customer journey
               </DialogDescription>
             </DialogHeader>
+            {error && (
+              <div className="p-3 bg-red-50 text-red-700 rounded text-sm">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Stage Name</Label>
@@ -125,6 +164,7 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Onboarding, Adoption"
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -135,6 +175,7 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                   value={formData.targetDurationDays}
                   onChange={(e) => setFormData({ ...formData, targetDurationDays: parseInt(e.target.value) })}
                   min="1"
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -146,12 +187,13 @@ export function StageDesigner({ stages: initialStages }: StageDesignerProps) {
                     value={formData.colorHex}
                     onChange={(e) => setFormData({ ...formData, colorHex: e.target.value })}
                     className="h-10 w-20 cursor-pointer rounded border"
+                    disabled={loading}
                   />
                   <span className="text-sm text-slate-500">{formData.colorHex}</span>
                 </div>
               </div>
-              <Button type="submit" className="w-full">
-                {editingStage ? 'Update Stage' : 'Create Stage'}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Saving...' : editingStage ? 'Update Stage' : 'Create Stage'}
               </Button>
             </form>
           </DialogContent>

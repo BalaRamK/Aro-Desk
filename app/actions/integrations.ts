@@ -199,6 +199,118 @@ export async function updateIntegrationSource(
   }
 }
 
+// Auto-provision a minimal n8n workflow with a webhook and store its URL
+export async function provisionN8nWebhook(
+  integrationId: string,
+  options?: { name?: string; path?: string }
+) {
+  const apiUrl = process.env.N8N_API_URL;
+  const apiKey = process.env.N8N_API_KEY;
+  const basicUser = process.env.N8N_BASIC_AUTH_USER;
+  const basicPass = process.env.N8N_BASIC_AUTH_PASSWORD;
+
+  if (!apiUrl) {
+    return { error: 'N8N_API_URL is not set' };
+  }
+  if (!apiKey && !(basicUser && basicPass)) {
+    return { error: 'Provide N8N_API_KEY or N8N_BASIC_AUTH_USER/N8N_BASIC_AUTH_PASSWORD' };
+  }
+
+  const cleanApiUrl = apiUrl.replace(/\/$/, '');
+  const webhookPath = (options?.path || `cs-${integrationId}`).replace(/^\//, '');
+  const workflowName = options?.name || `CS Auto ${integrationId}`;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (apiKey) {
+    headers['X-N8N-API-KEY'] = apiKey;
+  } else if (basicUser && basicPass) {
+    const token = Buffer.from(`${basicUser}:${basicPass}`).toString('base64');
+    headers['Authorization'] = `Basic ${token}`;
+  }
+
+  const body = {
+    name: workflowName,
+    active: false,
+    nodes: [
+      {
+        parameters: {
+          path: webhookPath,
+          httpMethod: 'POST',
+          responseMode: 'onReceived',
+          responseData: 'allEntries',
+        },
+        id: '1',
+        name: 'Webhook',
+        type: 'n8n-nodes-base.webhook',
+        typeVersion: 1,
+        position: [240, 300],
+      },
+      {
+        parameters: {
+          responseMode: 'lastNode',
+          options: {},
+        },
+        id: '2',
+        name: 'Respond to Webhook',
+        type: 'n8n-nodes-base.respondToWebhook',
+        typeVersion: 1,
+        position: [560, 300],
+      },
+    ],
+    connections: {
+      Webhook: {
+        main: [
+          [
+            {
+              node: 'Respond to Webhook',
+              type: 'main',
+              index: 0,
+            },
+          ],
+        ],
+      },
+    },
+    settings: {},
+  };
+
+  try {
+    const res = await fetch(`${cleanApiUrl}/rest/workflows`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      return { error: `n8n workflow create failed: ${res.status} ${res.statusText} - ${text}` };
+    }
+
+    const payload = await res.json();
+    const workflowId = payload?.id?.toString();
+
+    if (!workflowId) {
+      return { error: 'n8n did not return a workflow id' };
+    }
+
+    const webhookBase = (process.env.N8N_WEBHOOK_BASE_URL || cleanApiUrl.replace(/\/rest$/, '')).replace(/\/$/, '');
+    const webhookUrl = `${webhookBase}/webhook/${webhookPath}`;
+
+    await updateIntegrationSource(integrationId, {
+      n8n_workflow_id: workflowId,
+      n8n_webhook_url: webhookUrl,
+    });
+
+    revalidatePath('/dashboard/integrations');
+
+    return { workflowId, webhookUrl };
+  } catch (error) {
+    console.error('Error provisioning n8n webhook:', error);
+    return { error: 'Failed to provision n8n webhook' };
+  }
+}
+
 // Delete integration source
 export async function deleteIntegrationSource(id: string) {
   try {

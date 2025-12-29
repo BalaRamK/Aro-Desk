@@ -3,6 +3,7 @@
 import { query, getClient, setUserContext } from '@/lib/db'
 import { getSession } from './auth-local'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -377,6 +378,8 @@ export async function getAccountsByStage() {
     SELECT DISTINCT ON (id)
       id,
       stage,
+      display_name,
+      display_name as name,
       display_order,
       target_duration_days,
       color_hex
@@ -464,6 +467,61 @@ export async function updateAccountStage(accountId: string, newStage: string, no
     await client.query('ROLLBACK')
     console.error('Error updating account stage:', error)
     throw error
+  } finally {
+    client.release()
+  }
+}
+
+// Create a new customer account and seed initial journey history
+export async function createAccount(formData: FormData) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+
+  await setUserContext(session.userId)
+
+  const name = formData.get('name')?.toString().trim()
+  const stage = formData.get('stage')?.toString()
+  const arrRaw = formData.get('arr')?.toString()
+  const status = formData.get('status')?.toString() || 'Active'
+
+  if (!name || !stage) {
+    return { error: 'Name and stage are required' }
+  }
+
+  const arr = arrRaw ? Number(arrRaw) : null
+  if (arrRaw && Number.isNaN(arr)) {
+    return { error: 'ARR must be a number' }
+  }
+
+  const client = await getClient()
+
+  try {
+    await client.query('BEGIN')
+
+    const accountResult = await client.query(
+      `INSERT INTO accounts (name, status, arr)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [name, status, arr]
+    )
+
+    const accountId = accountResult.rows[0].id
+
+    await client.query(
+      `INSERT INTO journey_history (account_id, from_stage, to_stage, entered_at, changed_by, notes)
+       VALUES ($1, NULL, $2, NOW(), $3, $4)`,
+      [accountId, stage, session.userId, 'Initialized via CS Handbook']
+    )
+
+    await client.query('COMMIT')
+
+    revalidatePath('/dashboard/accounts')
+    revalidatePath('/dashboard/journey')
+    redirect('/dashboard/accounts')
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error creating account:', error)
+    return { error: 'Failed to create account' }
   } finally {
     client.release()
   }
