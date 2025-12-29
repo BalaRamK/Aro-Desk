@@ -487,8 +487,6 @@ export async function createAccount(formData: FormData) {
   const session = await getSession()
   if (!session) redirect('/login')
 
-  await setUserContext(session.userId)
-
   const name = formData.get('name')?.toString().trim()
   const stage = formData.get('stage')?.toString()
   const arrRaw = formData.get('arr')?.toString()
@@ -507,6 +505,7 @@ export async function createAccount(formData: FormData) {
 
   try {
     await client.query('BEGIN')
+    await setUserContext(session.userId, client)
 
     const accountResult = await client.query(
       `INSERT INTO accounts (name, status, arr)
@@ -546,8 +545,6 @@ export async function updateAccount(accountId: string, data: {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
   const updates: string[] = []
   const params: any[] = [accountId]
   let paramCount = 1
@@ -567,16 +564,26 @@ export async function updateAccount(accountId: string, data: {
   
   if (updates.length === 0) return { success: true }
   
+  const client = await getClient()
+  
   try {
-    await query(
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    await client.query(
       `UPDATE accounts SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $1`,
       params
     )
+    
+    await client.query('COMMIT')
     revalidatePath('/dashboard/accounts')
     return { success: true }
   } catch (error) {
+    await client.query('ROLLBACK')
     console.error('Error updating account:', error)
     throw error
+  } finally {
+    client.release()
   }
 }
 
@@ -585,12 +592,11 @@ export async function deleteAccount(accountId: string) {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
   const client = await getClient()
   
   try {
     await client.query('BEGIN')
+    await setUserContext(session.userId, client)
     
     // Delete journey history
     await client.query(`DELETE FROM journey_history WHERE account_id = $1`, [accountId])
@@ -622,19 +628,25 @@ export async function getAccount(accountId: string) {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
+  const client = await getClient()
   
-  const result = await query(`
-    SELECT 
-      a.*,
-      (SELECT to_stage FROM journey_history WHERE account_id = $1 ORDER BY entered_at DESC LIMIT 1) as current_stage,
-      (SELECT COUNT(*) FROM journey_history WHERE account_id = $1) as stage_changes,
-      (SELECT overall_score FROM health_scores WHERE account_id = $1 ORDER BY calculated_at DESC LIMIT 1) as health_score
-    FROM accounts a
-    WHERE a.id = $1
-  `, [accountId])
-  
-  return result.rows[0] || null
+  try {
+    await setUserContext(session.userId, client)
+    
+    const result = await client.query(`
+      SELECT 
+        a.*,
+        (SELECT to_stage FROM journey_history WHERE account_id = $1 ORDER BY entered_at DESC LIMIT 1) as current_stage,
+        (SELECT COUNT(*) FROM journey_history WHERE account_id = $1) as stage_changes,
+        (SELECT overall_score FROM health_scores WHERE account_id = $1 ORDER BY calculated_at DESC LIMIT 1) as health_score
+      FROM accounts a
+      WHERE a.id = $1
+    `, [accountId])
+    
+    return result.rows[0] || null
+  } finally {
+    client.release()
+  }
 }
 
 // Get journey history for an account
@@ -642,19 +654,25 @@ export async function getAccountJourneyHistory(accountId: string) {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
+  const client = await getClient()
   
-  const result = await query(`
-    SELECT 
-      jh.*,
-      p.full_name as changed_by_name
-    FROM journey_history jh
-    LEFT JOIN profiles p ON jh.changed_by = p.id
-    WHERE jh.account_id = $1
-    ORDER BY jh.entered_at DESC
-  `, [accountId])
-  
-  return result.rows
+  try {
+    await setUserContext(session.userId, client)
+    
+    const result = await client.query(`
+      SELECT 
+        jh.*,
+        p.full_name as changed_by_name
+      FROM journey_history jh
+      LEFT JOIN profiles p ON jh.changed_by = p.id
+      WHERE jh.account_id = $1
+      ORDER BY jh.entered_at DESC
+    `, [accountId])
+    
+    return result.rows
+  } finally {
+    client.release()
+  }
 }
 
 // Get playbooks with execution stats

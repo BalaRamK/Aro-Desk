@@ -230,26 +230,26 @@ exports.id=494,exports.ids=[494],exports.modules={6627:(a,b,c)=>{"use strict";c.
       `,[a,g]),await e.query(`
       INSERT INTO journey_history (account_id, from_stage, to_stage, changed_by, reason)
       VALUES ($1, $2, $3, $4, $5)
-    `,[a,g,b,d.userId,c||"Stage updated via Kanban board"]),await e.query("COMMIT"),{success:!0}}catch(a){throw await e.query("ROLLBACK"),console.error("Error updating account stage:",a),a}finally{e.release()}}async function u(a){let b=await (0,g.Ht)();b||(0,h.redirect)("/login"),await (0,f.Fh)(b.userId);let c=a.get("name")?.toString().trim(),d=a.get("stage")?.toString(),e=a.get("arr")?.toString(),j=a.get("status")?.toString()||"Active";if(!c||!d)throw Error("Name and stage are required");let k=e?Number(e):null;if(e&&Number.isNaN(k))throw Error("ARR must be a number");let l=await (0,f.KU)();try{await l.query("BEGIN");let a=(await l.query(`INSERT INTO accounts (name, status, arr)
+    `,[a,g,b,d.userId,c||"Stage updated via Kanban board"]),await e.query("COMMIT"),{success:!0}}catch(a){throw await e.query("ROLLBACK"),console.error("Error updating account stage:",a),a}finally{e.release()}}async function u(a){let b=await (0,g.Ht)();b||(0,h.redirect)("/login");let c=a.get("name")?.toString().trim(),d=a.get("stage")?.toString(),e=a.get("arr")?.toString(),j=a.get("status")?.toString()||"Active";if(!c||!d)throw Error("Name and stage are required");let k=e?Number(e):null;if(e&&Number.isNaN(k))throw Error("ARR must be a number");let l=await (0,f.KU)();try{await l.query("BEGIN"),await (0,f.Fh)(b.userId,l);let a=(await l.query(`INSERT INTO accounts (name, status, arr)
        VALUES ($1, $2, $3)
        RETURNING id`,[c,j,k])).rows[0].id;await l.query(`INSERT INTO journey_history (account_id, from_stage, to_stage, entered_at, changed_by, notes)
-       VALUES ($1, NULL, $2, NOW(), $3, $4)`,[a,d,b.userId,"Initialized via CS Handbook"]),await l.query("COMMIT"),(0,i.revalidatePath)("/dashboard/accounts"),(0,i.revalidatePath)("/dashboard/journey"),(0,h.redirect)("/dashboard/accounts")}catch(a){throw await l.query("ROLLBACK"),console.error("Error creating account:",a),a}finally{l.release()}}async function v(a,b){let c=await (0,g.Ht)();c||(0,h.redirect)("/login"),await (0,f.Fh)(c.userId);let d=[],e=[a],j=1;if(b.name?.trim()&&(d.push(`name = $${++j}`),e.push(b.name)),void 0!==b.arr&&(d.push(`arr = $${++j}`),e.push(b.arr)),b.status&&(d.push(`status = $${++j}`),e.push(b.status)),0===d.length)return{success:!0};try{return await (0,f.P)(`UPDATE accounts SET ${d.join(", ")}, updated_at = NOW() WHERE id = $1`,e),(0,i.revalidatePath)("/dashboard/accounts"),{success:!0}}catch(a){throw console.error("Error updating account:",a),a}}async function w(a){let b=await (0,g.Ht)();b||(0,h.redirect)("/login"),await (0,f.Fh)(b.userId);let c=await (0,f.KU)();try{return await c.query("BEGIN"),await c.query("DELETE FROM journey_history WHERE account_id = $1",[a]),await c.query("DELETE FROM health_scores WHERE account_id = $1",[a]),await c.query("DELETE FROM accounts WHERE parent_id = $1",[a]),await c.query("DELETE FROM accounts WHERE id = $1",[a]),await c.query("COMMIT"),(0,i.revalidatePath)("/dashboard/accounts"),{success:!0}}catch(a){throw await c.query("ROLLBACK"),console.error("Error deleting account:",a),a}finally{c.release()}}async function x(a){let b=await (0,g.Ht)();return b||(0,h.redirect)("/login"),await (0,f.Fh)(b.userId),(await (0,f.P)(`
-    SELECT 
-      a.*,
-      (SELECT to_stage FROM journey_history WHERE account_id = $1 ORDER BY entered_at DESC LIMIT 1) as current_stage,
-      (SELECT COUNT(*) FROM journey_history WHERE account_id = $1) as stage_changes,
-      (SELECT overall_score FROM health_scores WHERE account_id = $1 ORDER BY calculated_at DESC LIMIT 1) as health_score
-    FROM accounts a
-    WHERE a.id = $1
-  `,[a])).rows[0]||null}async function y(a){let b=await (0,g.Ht)();return b||(0,h.redirect)("/login"),await (0,f.Fh)(b.userId),(await (0,f.P)(`
-    SELECT 
-      jh.*,
-      p.full_name as changed_by_name
-    FROM journey_history jh
-    LEFT JOIN profiles p ON jh.changed_by = p.id
-    WHERE jh.account_id = $1
-    ORDER BY jh.entered_at DESC
-  `,[a])).rows}async function z(){let a=await (0,g.Ht)();return a||(0,h.redirect)("/login"),await (0,f.Fh)(a.userId),(await (0,f.P)(`
+       VALUES ($1, NULL, $2, NOW(), $3, $4)`,[a,d,b.userId,"Initialized via CS Handbook"]),await l.query("COMMIT"),(0,i.revalidatePath)("/dashboard/accounts"),(0,i.revalidatePath)("/dashboard/journey"),(0,h.redirect)("/dashboard/accounts")}catch(a){throw await l.query("ROLLBACK"),console.error("Error creating account:",a),a}finally{l.release()}}async function v(a,b){let c=await (0,g.Ht)();c||(0,h.redirect)("/login");let d=[],e=[a],j=1;if(b.name?.trim()&&(d.push(`name = $${++j}`),e.push(b.name)),void 0!==b.arr&&(d.push(`arr = $${++j}`),e.push(b.arr)),b.status&&(d.push(`status = $${++j}`),e.push(b.status)),0===d.length)return{success:!0};let k=await (0,f.KU)();try{return await k.query("BEGIN"),await (0,f.Fh)(c.userId,k),await k.query(`UPDATE accounts SET ${d.join(", ")}, updated_at = NOW() WHERE id = $1`,e),await k.query("COMMIT"),(0,i.revalidatePath)("/dashboard/accounts"),{success:!0}}catch(a){throw await k.query("ROLLBACK"),console.error("Error updating account:",a),a}finally{k.release()}}async function w(a){let b=await (0,g.Ht)();b||(0,h.redirect)("/login");let c=await (0,f.KU)();try{return await c.query("BEGIN"),await (0,f.Fh)(b.userId,c),await c.query("DELETE FROM journey_history WHERE account_id = $1",[a]),await c.query("DELETE FROM health_scores WHERE account_id = $1",[a]),await c.query("DELETE FROM accounts WHERE parent_id = $1",[a]),await c.query("DELETE FROM accounts WHERE id = $1",[a]),await c.query("COMMIT"),(0,i.revalidatePath)("/dashboard/accounts"),{success:!0}}catch(a){throw await c.query("ROLLBACK"),console.error("Error deleting account:",a),a}finally{c.release()}}async function x(a){let b=await (0,g.Ht)();b||(0,h.redirect)("/login");let c=await (0,f.KU)();try{return await (0,f.Fh)(b.userId,c),(await c.query(`
+      SELECT 
+        a.*,
+        (SELECT to_stage FROM journey_history WHERE account_id = $1 ORDER BY entered_at DESC LIMIT 1) as current_stage,
+        (SELECT COUNT(*) FROM journey_history WHERE account_id = $1) as stage_changes,
+        (SELECT overall_score FROM health_scores WHERE account_id = $1 ORDER BY calculated_at DESC LIMIT 1) as health_score
+      FROM accounts a
+      WHERE a.id = $1
+    `,[a])).rows[0]||null}finally{c.release()}}async function y(a){let b=await (0,g.Ht)();b||(0,h.redirect)("/login");let c=await (0,f.KU)();try{return await (0,f.Fh)(b.userId,c),(await c.query(`
+      SELECT 
+        jh.*,
+        p.full_name as changed_by_name
+      FROM journey_history jh
+      LEFT JOIN profiles p ON jh.changed_by = p.id
+      WHERE jh.account_id = $1
+      ORDER BY jh.entered_at DESC
+    `,[a])).rows}finally{c.release()}}async function z(){let a=await (0,g.Ht)();return a||(0,h.redirect)("/login"),await (0,f.Fh)(a.userId),(await (0,f.P)(`
     SELECT 
       p.*,
       COUNT(pe.id) as total_executions,
