@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Trash2, AlertTriangle } from 'lucide-react'
+import { createPlaybook } from '@/app/actions/customer_success'
+import { useRouter } from 'next/navigation'
 
 const TRIGGER_TYPES = [
   { value: 'health_score_drop', label: 'Health Score Drops Below' },
@@ -44,6 +46,7 @@ interface Action {
 }
 
 export function TriggerBuilder() {
+  const router = useRouter()
   const [triggerType, setTriggerType] = useState<string>('')
   const [triggerParams, setTriggerParams] = useState<Record<string, any>>({})
   const [actions, setActions] = useState<Action[]>([])
@@ -51,6 +54,7 @@ export function TriggerBuilder() {
   const [actionParams, setActionParams] = useState<Record<string, any>>({})
   const [playbookName, setPlaybookName] = useState('')
   const [playbookDescription, setPlaybookDescription] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   const handleAddAction = () => {
     if (!actionType) {
@@ -100,7 +104,32 @@ export function TriggerBuilder() {
     }
 
     console.log('Creating playbook:', playbookData)
-    alert('Playbook created successfully! (Demo)')
+    
+    setIsSaving(true)
+    try {
+      const result = await createPlaybook(
+        playbookData.name,
+        playbookData.description,
+        playbookData.trigger,
+        playbookData.actions
+      )
+      
+      if (result.success) {
+        alert('Playbook created successfully!')
+        // Reset form
+        setPlaybookName('')
+        setPlaybookDescription('')
+        setTriggerType('')
+        setTriggerParams({})
+        setActions([])
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Error creating playbook:', error)
+      alert('Failed to create playbook. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const getTriggerParamFields = (type: string) => {
@@ -328,9 +357,9 @@ export function TriggerBuilder() {
             onClick={handleCreatePlaybook} 
             className="w-full" 
             size="lg"
-            disabled={!playbookName || !triggerType || actions.length === 0}
+            disabled={!playbookName || !triggerType || actions.length === 0 || isSaving}
           >
-            Create Playbook
+            {isSaving ? 'Creating Playbook...' : 'Create Playbook'}
           </Button>
         </CardContent>
       </Card>

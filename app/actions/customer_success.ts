@@ -1,7 +1,9 @@
 'use server'
 
-import { query } from '@/lib/db'
+import { query, getClient, setUserContext } from '@/lib/db'
 import { analyzeSentiment, generateFollowUpEmail } from '@/lib/ai'
+import { getSession } from './auth-local'
+import { revalidatePath } from 'next/cache'
 
 export type Stage = 'onboarding' | 'adoption' | 'maturity' | 'renewal'
 
@@ -129,12 +131,43 @@ export async function updatePlanStepStatus(stepId: string, status: 'pending'|'in
   return { ok: true }
 }
 
-export async function createPlaybook(name: string, scenarioKey: string, triggers: any, actions: any) {
-  const res = await query(
-    'INSERT INTO playbooks (tenant_id, name, scenario_key, triggers, actions) VALUES (current_tenant_id(), $1, $2, $3::jsonb, $4::jsonb) RETURNING id',
-    [name, scenarioKey, JSON.stringify(triggers), JSON.stringify(actions)]
-  )
-  return res.rows[0]
+export async function createPlaybook(name: string, description: string, triggers: any, actions: any) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    // Resolve tenant_id from current user's profile
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+    
+    const res = await client.query(
+      `INSERT INTO playbooks (tenant_id, name, description, scenario_key, triggers, actions, is_active) 
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, true) 
+       RETURNING id`,
+      [tenantId, name, description, 'custom_automation', JSON.stringify(triggers), JSON.stringify(actions)]
+    )
+    
+    await client.query('COMMIT')
+    revalidatePath('/dashboard/automation')
+    return { success: true, id: res.rows[0].id }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error creating playbook:', error)
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export async function runPlaybook(playbookId: string, accountId: string, triggeredBy: string = 'system') {
