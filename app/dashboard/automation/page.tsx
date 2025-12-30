@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TriggerBuilder } from '@/components/trigger-builder'
-import { AlertCircle, Zap, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { AIAutomationBuilder } from '@/components/ai-automation-builder'
+import { AlertCircle, Zap, Clock, CheckCircle2, XCircle, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 
 export default async function AutomationPanelPage() {
@@ -29,10 +30,14 @@ export default async function AutomationPanelPage() {
       </div>
 
       <Tabs defaultValue="playbooks" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="playbooks" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Playbooks
+          </TabsTrigger>
+          <TabsTrigger value="ai-builder" className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            AI Builder
           </TabsTrigger>
           <TabsTrigger value="triggers" className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
@@ -55,7 +60,7 @@ export default async function AutomationPanelPage() {
             <CardContent>
               {playbooks.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-8">
-                  No playbooks configured yet. Create one using the Trigger Builder.
+                  No playbooks configured yet. Create one using the AI Builder or Trigger Builder.
                 </p>
               ) : (
                 <div className="space-y-4">
@@ -135,6 +140,10 @@ export default async function AutomationPanelPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-builder" className="space-y-6">
+          <AIAutomationBuilder />
         </TabsContent>
 
         <TabsContent value="triggers" className="space-y-6">
