@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS renewal_data (
     
     -- Renewal timeline
     renewal_date DATE NOT NULL,
-    days_to_renewal INTEGER GENERATED ALWAYS AS (EXTRACT(DAY FROM (renewal_date::timestamp - NOW()))) STORED,
+    days_to_renewal INTEGER, -- Calculated via trigger instead of generated column
     
     -- Renewal prediction
     renewal_probability DECIMAL(3, 2), -- 0.0 to 1.0 (from ML model or manual input)
@@ -354,13 +354,26 @@ FOR EACH ROW
 EXECUTE FUNCTION trigger_health_alert_webhook();
 
 -- ========================================================================
--- STEP 7: Grant Permissions for RLS Compliance
+-- STEP 7: Trigger for Calculating days_to_renewal
 -- ========================================================================
 
-GRANT SELECT, INSERT, UPDATE ON usage_events TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON support_tickets TO authenticated;
-GRANT SELECT, INSERT, UPDATE ON renewal_data TO authenticated;
-GRANT SELECT ON health_scores TO authenticated;
-GRANT EXECUTE ON FUNCTION calculate_account_health TO authenticated;
+CREATE OR REPLACE FUNCTION calculate_days_to_renewal()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.days_to_renewal := EXTRACT(DAY FROM (NEW.renewal_date::timestamp - NOW()));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_calculate_days_to_renewal
+BEFORE INSERT OR UPDATE ON renewal_data
+FOR EACH ROW
+EXECUTE FUNCTION calculate_days_to_renewal();
+
+-- ========================================================================
+-- STEP 8: Grant Permissions for RLS Compliance
+-- ========================================================================
+-- Note: GRANT statements removed for Neon compatibility
+-- In Neon, permissions are managed via database owner role
 
 COMMIT;

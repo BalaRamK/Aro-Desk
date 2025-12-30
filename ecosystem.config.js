@@ -2,7 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'cs-automation',
-      script: 'n8n',
+      script: 'npx',
+      args: 'n8n',
+      interpreter: 'none',
       // Keep a small restart window to avoid rapid restarts if config is broken
       max_restarts: 10,
       watch: false,

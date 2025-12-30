@@ -19,15 +19,71 @@ This workflow integrates with Microsoft Outlook to automatically capture meeting
 
 ## Setup Steps
 
-### Step 1: Configure Outlook OAuth2 in n8n
+### Step 1: Create Azure AD App Registration (Required First)
+
+Before configuring n8n, you need to create an Azure AD app to get OAuth credentials:
+
+1. **Go to Azure Portal**: https://portal.azure.com
+2. **Navigate to**: Azure Active Directory → App registrations
+3. **Click**: "New registration"
+4. **Fill in registration form**:
+   - **Name**: `n8n Outlook Integration` (or any descriptive name)
+   - **Supported account types**: "Accounts in any organizational directory and personal Microsoft accounts"
+   - **Redirect URI**: 
+     - Platform: **Web**
+     - URL: `http://localhost:5678/rest/oauth2-credential/callback`
+   - Click **Register**
+
+5. **Get Client ID**:
+   - After registration, you'll see the **Overview** page
+   - Copy the **Application (client) ID** → Save this as your **Client ID**
+
+6. **Create Client Secret**:
+   - Go to **Certificates & secrets** (left sidebar)
+   - Click **"New client secret"**
+   - Description: `n8n integration`
+   - Expiration: Choose 24 months (or custom)
+   - Click **Add**
+   - **IMPORTANT**: Immediately copy the **Value** → This is your **Client Secret** (won't be shown again!)
+
+7. **Set API Permissions**:
+   - Go to **API permissions** (left sidebar)
+   - Click **"Add a permission"**
+   - Select **Microsoft Graph**
+   - Choose **Delegated permissions**
+   - Add these permissions:
+     - `Calendars.Read`
+     - `Calendars.ReadWrite`
+     - `Mail.Read`
+     - `Mail.ReadWrite`
+     - `User.Read`
+   - Click **Add permissions**
+   - Click **"Grant admin consent"** (if you have admin rights)
+
+**Save these for Step 2**:
+- ✅ Client ID (Application ID)
+- ✅ Client Secret (Secret Value)
+
+---
+
+### Step 2: Configure Outlook OAuth2 in n8n
 
 1. Go to **Settings → Credentials** in n8n
-2. Create new credential: **Microsoft Outlook**
-3. Click "Connect my account"
-4. Authorize with Microsoft account
-5. Save credentials with name: `Outlook_Production`
+2. Click **"Add credential"**
+3. Search and select **"Microsoft Outlook OAuth2 API"**
+4. Fill in the credential form:
+   - **Access Token URL**: `https://login.microsoftonline.com/common/oauth2/v2.0/token` (pre-filled)
+   - **Client ID**: Paste the Application (client) ID from Step 1
+   - **Client Secret**: Paste the secret value from Step 1
+   - **Allowed HTTP Request Domains**: Leave as "All"
+   - **Use Shared Mailbox**: Keep OFF (unless needed)
+5. Click **"Save"**
+6. Click **"Connect my account"** to authorize
+7. Sign in with your Microsoft account
+8. Accept permissions
+9. Save credentials with name: `Outlook_Production`
 
-### Step 2: Configure PostgreSQL Connection
+### Step 3: Configure PostgreSQL Connection
 
 1. Create new credential: **PostgreSQL**
 2. Fill in connection details:
@@ -38,20 +94,102 @@ This workflow integrates with Microsoft Outlook to automatically capture meeting
    - **Port**: 5432
 3. Save with name: `PostgreSQL_CS`
 
-### Step 3: Configure Slack Webhook (Optional)
+### Step 4: Configure Slack Webhook (Optional)
 
 1. Go to Slack workspace settings
 2. Create Incoming Webhook for #cs-automation channel
 3. Copy webhook URL
 4. Will be used in error handling node
 
-### Step 4: Import Workflow JSON
+### Step 5: Import Workflow JSON
 
 Copy the workflow JSON below and import into n8n:
 1. Click **+** → **Import from URL/Clipboard**
 2. Paste JSON
 3. Configure the three credentials created above
 4. Deploy workflow
+
+---
+
+## Running n8n Continuously (Windows)
+
+n8n needs to run continuously to execute scheduled workflows. Here are the recommended methods:
+
+### Option 1: Windows Service (Recommended for Production)
+
+Install NSSM (Non-Sucking Service Manager) to run n8n as a Windows service:
+
+```powershell
+# Install NSSM via Chocolatey
+choco install nssm
+
+# Create the service
+nssm install n8n "C:\Program Files\nodejs\n8n.cmd"
+
+# Set environment variables
+nssm set n8n AppEnvironmentExtra N8N_PORT=5678
+nssm set n8n AppEnvironmentExtra N8N_BASIC_AUTH_ACTIVE=true
+nssm set n8n AppEnvironmentExtra N8N_BASIC_AUTH_USER=admin
+nssm set n8n AppEnvironmentExtra N8N_BASIC_AUTH_PASSWORD=changeme
+
+# Start the service
+nssm start n8n
+
+# Service will auto-start on Windows boot
+```
+
+**Manage the service**:
+```powershell
+nssm stop n8n       # Stop service
+nssm restart n8n    # Restart service
+nssm remove n8n     # Remove service
+```
+
+### Option 2: Windows Task Scheduler (Alternative)
+
+1. Open **Task Scheduler**
+2. Click **"Create Basic Task"**
+3. Name: `n8n Automation Server`
+4. Trigger: **When the computer starts**
+5. Action: **Start a program**
+   - Program: `powershell.exe`
+   - Arguments: `-Command "cd 'C:\Users\Bala Karumanchi\OneDrive - QuNulabs Private Limited\Desktop\Aro-Desk'; $env:N8N_PORT=5678; n8n"`
+6. Check **"Run with highest privileges"**
+7. Finish
+
+### Option 3: PowerShell Profile (Development)
+
+Add to PowerShell profile to start automatically:
+
+```powershell
+# Edit profile
+notepad $PROFILE
+
+# Add this line:
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-Command", "cd 'C:\Path\To\Project'; `$env:N8N_PORT=5678; n8n"
+```
+
+### Option 4: Docker (Cross-platform)
+
+If you have Docker Desktop installed:
+
+```powershell
+docker run -d \
+  --name n8n \
+  -p 5678:5678 \
+  -v n8n_data:/home/node/.n8n \
+  --restart unless-stopped \
+  n8nio/n8n
+```
+
+**Check n8n is running**:
+```powershell
+# Visit in browser
+http://localhost:5678
+
+# Or check with curl
+curl http://localhost:5678
+```
 
 ---
 
