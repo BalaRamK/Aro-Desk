@@ -54,6 +54,25 @@ export async function createTestHierarchyData() {
     }
     
     console.log('Using stage:', stageName)
+
+    // Backfill any legacy journey_history rows that stored the stage UUID instead of the stage name
+    await client.query(
+      `UPDATE journey_history jh
+       SET to_stage = js.stage
+       FROM journey_stages js
+       WHERE jh.tenant_id = $1
+         AND jh.to_stage = js.id::text`,
+      [tenantId]
+    )
+
+    await client.query(
+      `UPDATE journey_history jh
+       SET from_stage = js.stage
+       FROM journey_stages js
+       WHERE jh.tenant_id = $1
+         AND jh.from_stage = js.id::text`,
+      [tenantId]
+    )
     
     // Check if test data already exists
     const existingResult = await client.query(
