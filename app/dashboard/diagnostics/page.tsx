@@ -3,7 +3,14 @@
 import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { diagnoseDatabaseState } from '@/app/actions/diagnostics'
+async function fetchDiagnostics() {
+  const res = await fetch('/api/diagnostics')
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'Unknown error' }))
+    throw new Error(body.error || 'Failed to fetch diagnostics')
+  }
+  return res.json()
+}
 
 export default function DiagnosticsPage() {
   const [diagnostics, setDiagnostics] = useState<any>(null)
@@ -12,7 +19,7 @@ export default function DiagnosticsPage() {
   async function handleCheck() {
     setLoading(true)
     try {
-      const result = await diagnoseDatabaseState()
+      const result = await fetchDiagnostics()
       setDiagnostics(result)
     } catch (error) {
       setDiagnostics({ error: error instanceof Error ? error.message : 'Failed to fetch diagnostics' })
