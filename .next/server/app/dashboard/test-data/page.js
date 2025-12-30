@@ -10,7 +10,7 @@ see more here https://nextjs.org/docs/messages/app-static-to-dynamic-error`),"__
        RETURNING id`,["Enterprise Corp - South Region",15e4,"Active",h,d])).rows[0].id,l=(await b.query(`INSERT INTO accounts (name, arr, status, parent_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
        RETURNING id`,["Startup Inc",5e4,"Active",null,d])).rows[0].id;return await b.query(`INSERT INTO accounts (name, arr, status, parent_id, tenant_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,["TechCo Solutions",12e4,"AtRisk",null,d]),await b.query(`INSERT INTO health_scores (
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,["TechCo Solutions",12e4,"At Risk",null,d]),await b.query(`INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
         support_health, sentiment_score, component_scores, calculated_at, created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,[h,d,85,88,82,90,85,JSON.stringify({product_usage:88,engagement:82,support_health:90,adoption:85,relationship:87})]),await b.query(`INSERT INTO health_scores (

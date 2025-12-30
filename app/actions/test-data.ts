@@ -107,7 +107,7 @@ export async function createTestHierarchyData() {
     await client.query(
       `INSERT INTO accounts (name, arr, status, parent_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-      ['TechCo Solutions', 120000, 'AtRisk', null, tenantId]
+      ['TechCo Solutions', 120000, 'At Risk', null, tenantId]
     )
     
     // Insert Health Scores for Parent Account
