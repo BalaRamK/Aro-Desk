@@ -23,8 +23,6 @@ function normalizeDateRange(params?: { startDate?: string; endDate?: string }) {
 export async function getHealthDistribution(params?: { startDate?: string; endDate?: string }) {
   const session = await getSession()
   if (!session) redirect('/login')
-  
-  await setUserContext(session.userId)
 
   const { startDate, endDate } = normalizeDateRange(params)
   const dateFilters: string[] = []
@@ -38,47 +36,63 @@ export async function getHealthDistribution(params?: { startDate?: string; endDa
     dateFilters.push(`calculated_at::date <= $${sqlParams.length}::date`)
   }
   const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
-  
-  const result = await query(`
-    WITH latest_health AS (
-      SELECT DISTINCT ON (account_id)
-        account_id, overall_score, calculated_at
-      FROM health_scores
-      ${dateClause}
-      ORDER BY account_id, calculated_at DESC
-    ),
-    filtered_accounts AS (
-      SELECT lh.account_id, lh.overall_score
-      FROM latest_health lh
-      JOIN accounts a ON lh.account_id = a.id
-      WHERE a.parent_id IS NULL
-    ),
-    totals AS (
-      SELECT COUNT(*) AS total FROM filtered_accounts
+
+  const client = await getClient()
+
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const result = await client.query(
+      `
+        WITH latest_health AS (
+          SELECT DISTINCT ON (account_id)
+            account_id, overall_score, calculated_at
+          FROM health_scores
+          ${dateClause}
+          ORDER BY account_id, calculated_at DESC
+        ),
+        filtered_accounts AS (
+          SELECT lh.account_id, lh.overall_score
+          FROM latest_health lh
+          JOIN accounts a ON lh.account_id = a.id
+          WHERE a.parent_id IS NULL
+        ),
+        totals AS (
+          SELECT COUNT(*) AS total FROM filtered_accounts
+        )
+        SELECT 
+          CASE 
+            WHEN lh.overall_score >= 70 THEN 'Healthy'
+            WHEN lh.overall_score >= 40 THEN 'At Risk'
+            ELSE 'Critical'
+          END as health_category,
+          COUNT(*) as count,
+          ROUND(100.0 * COUNT(*) / NULLIF((SELECT total FROM totals), 0), 1) as percentage
+        FROM filtered_accounts lh
+        CROSS JOIN totals
+        GROUP BY health_category, totals.total
+        ORDER BY health_category DESC
+      `,
+      sqlParams
     )
-    SELECT 
-      CASE 
-        WHEN lh.overall_score >= 70 THEN 'Healthy'
-        WHEN lh.overall_score >= 40 THEN 'At Risk'
-        ELSE 'Critical'
-      END as health_category,
-      COUNT(*) as count,
-      ROUND(100.0 * COUNT(*) / NULLIF((SELECT total FROM totals), 0), 1) as percentage
-    FROM filtered_accounts lh
-    CROSS JOIN totals
-    GROUP BY health_category, totals.total
-    ORDER BY health_category DESC
-  `, sqlParams)
-  
-  return result.rows
+
+    await client.query('COMMIT')
+    return result.rows
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 // Get accounts at risk with high revenue
 export async function getRevenueAtRisk(params?: { startDate?: string; endDate?: string }) {
   const session = await getSession()
   if (!session) redirect('/login')
-  
-  await setUserContext(session.userId)
+
+  const client = await getClient()
 
   const { startDate, endDate } = normalizeDateRange(params)
   const dateFilters: string[] = []
@@ -92,41 +106,55 @@ export async function getRevenueAtRisk(params?: { startDate?: string; endDate?: 
     dateFilters.push(`calculated_at::date <= $${sqlParams.length}::date`)
   }
   const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
-  
-  const result = await query(`
-    WITH latest_health AS (
-      SELECT DISTINCT ON (account_id)
-        account_id, overall_score, risk_level, calculated_at
-      FROM health_scores
-      ${dateClause}
-      ORDER BY account_id, calculated_at DESC
+
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const result = await client.query(
+      `
+        WITH latest_health AS (
+          SELECT DISTINCT ON (account_id)
+            account_id, overall_score, risk_level, calculated_at
+          FROM health_scores
+          ${dateClause}
+          ORDER BY account_id, calculated_at DESC
+        )
+        SELECT 
+          a.id,
+          a.name,
+          a.arr,
+          lh.overall_score,
+          lh.risk_level,
+          p.full_name as csm_name
+        FROM accounts a
+        JOIN latest_health lh ON a.id = lh.account_id
+        LEFT JOIN profiles p ON a.csm_id = p.id
+        WHERE a.arr > 100000
+          AND lh.overall_score < 50
+          AND a.parent_id IS NULL
+        ORDER BY a.arr DESC, lh.overall_score ASC
+        LIMIT 10
+      `,
+      sqlParams
     )
-    SELECT 
-      a.id,
-      a.name,
-      a.arr,
-      lh.overall_score,
-      lh.risk_level,
-      p.full_name as csm_name
-    FROM accounts a
-    JOIN latest_health lh ON a.id = lh.account_id
-    LEFT JOIN profiles p ON a.csm_id = p.id
-    WHERE a.arr > 100000
-      AND lh.overall_score < 50
-      AND a.parent_id IS NULL
-    ORDER BY a.arr DESC, lh.overall_score ASC
-    LIMIT 10
-  `, sqlParams)
-  
-  return result.rows
+
+    await client.query('COMMIT')
+    return result.rows
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 // Get portfolio growth trend (accounts moving through stages)
 export async function getPortfolioGrowth(days: number = 90, params?: { startDate?: string; endDate?: string }) {
   const session = await getSession()
   if (!session) redirect('/login')
-  
-  await setUserContext(session.userId)
+
+  const client = await getClient()
 
   const { startDate, endDate } = normalizeDateRange(params)
   const dateFilters: string[] = []
@@ -142,28 +170,42 @@ export async function getPortfolioGrowth(days: number = 90, params?: { startDate
     dateFilters.push(`jh.entered_at::date <= $${sqlParams.length}::date`)
   }
   const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
-  
-  const result = await query(`
-    WITH stage_counts AS (
-      SELECT 
-        DATE(jh.entered_at) as date,
-        jh.to_stage as stage,
-        COUNT(DISTINCT jh.account_id) as account_count
-      FROM journey_history jh
-      ${dateClause}
-      GROUP BY DATE(jh.entered_at), jh.to_stage
+
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const result = await client.query(
+      `
+        WITH stage_counts AS (
+          SELECT 
+            DATE(jh.entered_at) as date,
+            jh.to_stage as stage,
+            COUNT(DISTINCT jh.account_id) as account_count
+          FROM journey_history jh
+          ${dateClause}
+          GROUP BY DATE(jh.entered_at), jh.to_stage
+        )
+        SELECT 
+          date,
+          stage::text,
+          account_count,
+          SUM(account_count) OVER (ORDER BY date) as cumulative_count
+        FROM stage_counts
+        ORDER BY date DESC
+        LIMIT 100
+      `,
+      sqlParams
     )
-    SELECT 
-      date,
-      stage::text,
-      account_count,
-      SUM(account_count) OVER (ORDER BY date) as cumulative_count
-    FROM stage_counts
-    ORDER BY date DESC
-    LIMIT 100
-  `, sqlParams)
-  
-  return result.rows
+
+    await client.query('COMMIT')
+    return result.rows
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 // Get all accounts with hierarchy info
