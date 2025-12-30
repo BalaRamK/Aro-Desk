@@ -22,7 +22,7 @@ see more here https://nextjs.org/docs/messages/app-static-to-dynamic-error`),"__
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[k,d,45,50,42,48,43,JSON.stringify({product_usage:50,engagement:42,support_health:48,adoption:43,relationship:42})]),await b.query(`INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
         support_sentiment_score, adoption_score, component_scores, calculated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[l,d,92,95,90,93,92,JSON.stringify({product_usage:95,engagement:90,support_health:93,adoption:92,relationship:90})]),await b.query(`INSERT INTO journey_history (account_id, stage_id, tenant_id, entered_at, notes)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[l,d,92,95,90,93,92,JSON.stringify({product_usage:95,engagement:90,support_health:93,adoption:92,relationship:90})]),await b.query(`INSERT INTO journey_history (account_id, to_stage, tenant_id, entered_at, notes)
        VALUES 
          ($1, $2, $3, NOW() - INTERVAL '90 days', 'Parent account onboarded'),
          ($4, $2, $3, NOW() - INTERVAL '60 days', 'North region division started'),

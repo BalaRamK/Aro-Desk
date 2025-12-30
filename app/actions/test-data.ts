@@ -184,7 +184,7 @@ export async function createTestHierarchyData() {
     
     // Insert journey history
     await client.query(
-      `INSERT INTO journey_history (account_id, stage_id, tenant_id, entered_at, notes)
+      `INSERT INTO journey_history (account_id, to_stage, tenant_id, entered_at, notes)
        VALUES 
          ($1, $2, $3, NOW() - INTERVAL '90 days', 'Parent account onboarded'),
          ($4, $2, $3, NOW() - INTERVAL '60 days', 'North region division started'),
