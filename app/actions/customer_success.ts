@@ -154,11 +154,33 @@ export async function createPlaybook(name: string, description: string, triggers
     // Generate a unique scenario_key from name
     const scenarioKey = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now()
     
+    // Extract trigger type and criteria from triggers object
+    // triggers has format: { type: 'health_score_drop', params: {...} }
+    const triggerType = triggers?.type || 'custom_trigger'
+    const triggerCriteria = triggers?.params || {}
+    
+    // For webhook, use a placeholder URL (can be updated via UI)
+    const webhookUrl = triggers?.webhook_url || 'https://example.com/webhook/placeholder'
+    
     const res = await client.query(
-      `INSERT INTO playbooks (tenant_id, name, description, scenario_key, triggers, actions, is_active) 
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, true) 
+      `INSERT INTO playbooks (
+        tenant_id, name, description, 
+        trigger_type, trigger_criteria, webhook_url, 
+        scenario_key, triggers, actions
+      ) 
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8::jsonb, $9::jsonb) 
        RETURNING id`,
-      [tenantId, name, description, scenarioKey, JSON.stringify(triggers), JSON.stringify(actions)]
+      [
+        tenantId, 
+        name, 
+        description, 
+        triggerType, 
+        JSON.stringify(triggerCriteria), 
+        webhookUrl,
+        scenarioKey, 
+        JSON.stringify(triggers), 
+        JSON.stringify(actions)
+      ]
     )
     
     await client.query('COMMIT')
