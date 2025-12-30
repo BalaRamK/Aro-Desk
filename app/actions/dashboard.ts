@@ -437,12 +437,21 @@ export async function updateAccountStage(accountId: string, newStage: string, no
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
-  
   const client = await getClient()
   
   try {
     await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    // Resolve tenant_id from current user's profile
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
     
     // Get current stage from latest journey history
     const currentResult = await client.query(
@@ -466,9 +475,9 @@ export async function updateAccountStage(accountId: string, newStage: string, no
     
     // Create new journey history entry
     await client.query(`
-      INSERT INTO journey_history (account_id, from_stage, to_stage, changed_by, reason)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [accountId, oldStage, newStage, session.userId, notes || 'Stage updated via Kanban board'])
+      INSERT INTO journey_history (account_id, from_stage, to_stage, changed_by, reason, tenant_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [accountId, oldStage, newStage, session.userId, notes || 'Stage updated via Kanban board', tenantId])
     
     await client.query('COMMIT')
     
@@ -527,9 +536,9 @@ export async function createAccount(formData: FormData) {
     const accountId = accountResult.rows[0].id
 
     await client.query(
-      `INSERT INTO journey_history (account_id, from_stage, to_stage, entered_at, changed_by, notes)
-       VALUES ($1, NULL, $2, NOW(), $3, $4)`,
-      [accountId, stage, session.userId, 'Initialized via CS Handbook']
+      `INSERT INTO journey_history (account_id, from_stage, to_stage, entered_at, changed_by, notes, tenant_id)
+       VALUES ($1, NULL, $2, NOW(), $3, $4, $5)`,
+      [accountId, stage, session.userId, 'Initialized via CS Handbook', tenantId]
     )
 
     await client.query('COMMIT')
