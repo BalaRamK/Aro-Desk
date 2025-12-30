@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MoreVertical } from 'lucide-react'
 import { updateAccount, deleteAccount } from '@/app/actions/dashboard'
 
-export function AccountActions({ account }: { account: any }) {
+export function AccountActions({ account, allAccounts }: { account: any; allAccounts?: any[] }) {
   const router = useRouter()
   const [openEdit, setOpenEdit] = useState(false)
   const [openDelete, setOpenDelete] = useState(false)
@@ -20,6 +20,7 @@ export function AccountActions({ account }: { account: any }) {
     name: account.name,
     arr: account.arr || '',
     status: account.status || 'Active',
+    parent_id: account.parent_id || '',
   })
 
   async function handleUpdate() {
@@ -29,6 +30,7 @@ export function AccountActions({ account }: { account: any }) {
         name: formData.name,
         arr: formData.arr ? Number(formData.arr) : null,
         status: formData.status,
+        parent_id: formData.parent_id || null,
       })
       setOpenEdit(false)
       router.refresh()
@@ -99,6 +101,26 @@ export function AccountActions({ account }: { account: any }) {
                 </SelectContent>
               </Select>
             </div>
+            {allAccounts && allAccounts.length > 0 && (
+              <div>
+                <Label htmlFor="edit-parent">Parent Account</Label>
+                <Select value={formData.parent_id} onValueChange={(value) => setFormData({ ...formData, parent_id: value })}>
+                  <SelectTrigger id="edit-parent">
+                    <SelectValue placeholder="None - Root account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None - Root account</SelectItem>
+                    {allAccounts
+                      .filter(acc => acc.id !== account.id)
+                      .map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.name} {acc.arr ? `($${(acc.arr / 1000).toFixed(0)}k ARR)` : ''}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <Button onClick={handleUpdate} disabled={loading} className="w-full">
               {loading ? 'Updating...' : 'Update Account'}
             </Button>

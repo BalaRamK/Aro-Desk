@@ -96,6 +96,12 @@
       "namedRegex": "^/dashboard/journey(?:/)?$"
     },
     {
+      "page": "/dashboard/test-data",
+      "regex": "^/dashboard/test\\-data(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/test\\-data(?:/)?$"
+    },
+    {
       "page": "/forgot-password",
       "regex": "^/forgot\\-password(?:/)?$",
       "routeKeys": {},

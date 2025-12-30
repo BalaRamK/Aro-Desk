@@ -377,6 +377,38 @@ export async function getJourneyStages() {
   return result.rows
 }
 
+// Get all accounts for parent selection dropdown
+export async function getAllAccountsForParentSelect() {
+  const session = await getSession()
+  if (!session) redirect('/login')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    const result = await client.query(`
+      SELECT 
+        id,
+        name,
+        arr,
+        parent_id
+      FROM accounts
+      WHERE tenant_id = (SELECT tenant_id FROM profiles WHERE id = $1)
+      ORDER BY name ASC
+    `, [session.userId])
+    
+    await client.query('COMMIT')
+    return result.rows
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 // Get accounts grouped by journey stage (for Kanban)
 export async function getAccountsByStage() {
   const session = await getSession()
@@ -500,6 +532,7 @@ export async function createAccount(formData: FormData) {
   const stage = formData.get('stage')?.toString()
   const arrRaw = formData.get('arr')?.toString()
   const status = formData.get('status')?.toString() || 'Active'
+  const parentIdRaw = formData.get('parent_id')?.toString()
 
   if (!name || !stage) {
     throw new Error('Name and stage are required')
@@ -509,6 +542,8 @@ export async function createAccount(formData: FormData) {
   if (arrRaw && Number.isNaN(arr)) {
     throw new Error('ARR must be a number')
   }
+
+  const parentId = parentIdRaw && parentIdRaw !== '' ? parentIdRaw : null
 
   const client = await getClient()
 
@@ -527,10 +562,10 @@ export async function createAccount(formData: FormData) {
     }
 
     const accountResult = await client.query(
-      `INSERT INTO accounts (name, status, arr, tenant_id)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO accounts (name, status, arr, parent_id, tenant_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING id`,
-      [name, status, arr, tenantId]
+      [name, status, arr, parentId, tenantId]
     )
 
     const accountId = accountResult.rows[0].id
@@ -560,6 +595,7 @@ export async function updateAccount(accountId: string, data: {
   name?: string
   arr?: number | null
   status?: string
+  parent_id?: string | null
 }) {
   const session = await getSession()
   if (!session) redirect('/login')
@@ -579,6 +615,10 @@ export async function updateAccount(accountId: string, data: {
   if (data.status) {
     updates.push(`status = $${++paramCount}`)
     params.push(data.status)
+  }
+  if (data.parent_id !== undefined) {
+    updates.push(`parent_id = $${++paramCount}`)
+    params.push(data.parent_id || null)
   }
   
   if (updates.length === 0) return { success: true }

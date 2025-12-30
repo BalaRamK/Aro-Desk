@@ -1,4 +1,4 @@
-import { createAccount, getJourneyStages } from '@/app/actions/dashboard'
+import { createAccount, getJourneyStages, getAllAccountsForParentSelect } from '@/app/actions/dashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -6,7 +6,10 @@ import Link from 'next/link'
 const ACCOUNT_STATUS = ['Active', 'Onboarding', 'At Risk', 'Churned', 'Paused'] as const
 
 export default async function NewAccountPage() {
-  const stages = await getJourneyStages()
+  const [stages, allAccounts] = await Promise.all([
+    getJourneyStages(),
+    getAllAccountsForParentSelect()
+  ])
 
   return (
     <div className="p-6 space-y-6">
@@ -87,6 +90,24 @@ export default async function NewAccountPage() {
                 >
                   {ACCOUNT_STATUS.map((status) => (
                     <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="parent_id">
+                  Parent Account (Optional)
+                </label>
+                <select
+                  id="parent_id"
+                  name="parent_id"
+                  className="w-full rounded border px-3 py-2 bg-white dark:bg-slate-900"
+                  defaultValue=""
+                >
+                  <option value="">None - This is a root account</option>
+                  {allAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} {account.arr ? `($${(account.arr / 1000).toFixed(0)}k ARR)` : ''}
+                    </option>
                   ))}
                 </select>
               </div>

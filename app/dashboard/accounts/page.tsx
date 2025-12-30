@@ -1,4 +1,4 @@
-import { getAccounts, getJourneyStages } from '@/app/actions/dashboard'
+import { getAccounts, getJourneyStages, getAllAccountsForParentSelect } from '@/app/actions/dashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -29,9 +29,10 @@ export default async function AccountsListPage({ searchParams }: { searchParams?
   if (startDate) filters.startDate = startDate
   if (endDate) filters.endDate = endDate
 
-  const [accounts, stages] = await Promise.all([
+  const [accounts, stages, allAccountsForParent] = await Promise.all([
     getAccounts(filters),
-    getJourneyStages()
+    getJourneyStages(),
+    getAllAccountsForParentSelect()
   ])
 
   const getHealthColor = (score: number | null) => {
@@ -200,7 +201,7 @@ export default async function AccountsListPage({ searchParams }: { searchParams?
                     {account.csm_name || 'Unassigned'}
                   </TableCell>
                   <TableCell>
-                    <AccountActions account={account} />
+                    <AccountActions account={account} allAccounts={allAccountsForParent} />
                   </TableCell>
                   <TableCell>
                     <Link href={`/dashboard/accounts/${account.id}`}>
