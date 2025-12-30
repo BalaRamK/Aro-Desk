@@ -699,22 +699,33 @@ export async function getPlaybooks() {
   const session = await getSession()
   if (!session) redirect('/login')
   
-  await setUserContext(session.userId)
+  const client = await getClient()
   
-  const result = await query(`
-    SELECT 
-      p.*,
-      COUNT(pe.id) as total_executions,
-      COUNT(CASE WHEN pe.executed_at >= NOW() - INTERVAL '7 days' THEN 1 END) as executions_last_7_days,
-      MAX(pe.executed_at) as last_executed_at
-    FROM playbooks p
-    LEFT JOIN playbook_executions pe ON p.id = pe.playbook_id
-    WHERE p.is_active = true
-    GROUP BY p.id
-    ORDER BY p.name
-  `)
-  
-  return result.rows
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    const result = await client.query(`
+      SELECT 
+        p.*,
+        COUNT(pe.id) as total_executions,
+        COUNT(CASE WHEN pe.executed_at >= NOW() - INTERVAL '7 days' THEN 1 END) as executions_last_7_days,
+        MAX(pe.executed_at) as last_executed_at
+      FROM playbooks p
+      LEFT JOIN playbook_executions pe ON p.id = pe.playbook_id
+      WHERE p.tenant_id = (SELECT tenant_id FROM profiles WHERE id = $1)
+      GROUP BY p.id
+      ORDER BY p.name
+    `, [session.userId])
+    
+    await client.query('COMMIT')
+    return result.rows
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 // Get webhook queue status

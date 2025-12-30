@@ -249,18 +249,18 @@ exports.id=494,exports.ids=[494],exports.modules={6627:(a,b,c)=>{"use strict";c.
       LEFT JOIN profiles p ON jh.changed_by = p.id
       WHERE jh.account_id = $1
       ORDER BY jh.entered_at DESC
-    `,[a])).rows}finally{c.release()}}async function z(){let a=await (0,g.Ht)();return a||(0,h.redirect)("/login"),await (0,f.Fh)(a.userId),(await (0,f.P)(`
-    SELECT 
-      p.*,
-      COUNT(pe.id) as total_executions,
-      COUNT(CASE WHEN pe.executed_at >= NOW() - INTERVAL '7 days' THEN 1 END) as executions_last_7_days,
-      MAX(pe.executed_at) as last_executed_at
-    FROM playbooks p
-    LEFT JOIN playbook_executions pe ON p.id = pe.playbook_id
-    WHERE p.is_active = true
-    GROUP BY p.id
-    ORDER BY p.name
-  `)).rows}async function A(a=50){let b=await (0,g.Ht)();return b||(0,h.redirect)("/login"),await (0,f.Fh)(b.userId),(await (0,f.P)(`
+    `,[a])).rows}finally{c.release()}}async function z(){let a=await (0,g.Ht)();a||(0,h.redirect)("/login");let b=await (0,f.KU)();try{await b.query("BEGIN"),await (0,f.Fh)(a.userId,b);let c=await b.query(`
+      SELECT 
+        p.*,
+        COUNT(pe.id) as total_executions,
+        COUNT(CASE WHEN pe.executed_at >= NOW() - INTERVAL '7 days' THEN 1 END) as executions_last_7_days,
+        MAX(pe.executed_at) as last_executed_at
+      FROM playbooks p
+      LEFT JOIN playbook_executions pe ON p.id = pe.playbook_id
+      WHERE p.tenant_id = (SELECT tenant_id FROM profiles WHERE id = $1)
+      GROUP BY p.id
+      ORDER BY p.name
+    `,[a.userId]);return await b.query("COMMIT"),c.rows}catch(a){throw await b.query("ROLLBACK"),a}finally{b.release()}}async function A(a=50){let b=await (0,g.Ht)();return b||(0,h.redirect)("/login"),await (0,f.Fh)(b.userId),(await (0,f.P)(`
     SELECT 
       wq.*,
       p.name as playbook_name,

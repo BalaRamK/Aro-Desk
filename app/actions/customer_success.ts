@@ -207,6 +207,241 @@ export async function createPlaybook(name: string, description: string, triggers
   }
 }
 
+export async function getPlaybook(playbookId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    const result = await client.query(
+      `SELECT * FROM playbooks WHERE id = $1 AND tenant_id = (SELECT tenant_id FROM profiles WHERE id = $2)`,
+      [playbookId, session.userId]
+    )
+    
+    await client.query('COMMIT')
+    return result.rows[0] || null
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error fetching playbook:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+export async function updatePlaybook(
+  playbookId: string, 
+  updates: {
+    name?: string
+    description?: string
+    triggers?: any
+    actions?: any
+    is_active?: boolean
+    webhook_url?: string
+  }
+) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    // Resolve tenant_id
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+    
+    // Build dynamic UPDATE query
+    const updateFields: string[] = []
+    const values: any[] = []
+    let paramCount = 1
+    
+    if (updates.name !== undefined) {
+      updateFields.push(`name = $${paramCount++}`)
+      values.push(updates.name)
+    }
+    
+    if (updates.description !== undefined) {
+      updateFields.push(`description = $${paramCount++}`)
+      values.push(updates.description)
+    }
+    
+    if (updates.triggers !== undefined) {
+      // Map trigger type to enum
+      const triggerTypeMap: Record<string, string> = {
+        'health_score_drop': 'Health Score Drop',
+        'stage_change': 'Stage Transition',
+        'usage_decline': 'Usage Decline',
+        'support_spike': 'Support Ticket',
+        'contract_approaching': 'Contract Expiration',
+        'manual': 'Manual',
+        'scheduled': 'Scheduled'
+      }
+      
+      const uiTriggerType = updates.triggers?.type || 'manual'
+      const triggerType = triggerTypeMap[uiTriggerType] || 'Manual'
+      const triggerCriteria = updates.triggers?.params || {}
+      
+      updateFields.push(`trigger_type = $${paramCount++}`)
+      values.push(triggerType)
+      
+      updateFields.push(`trigger_criteria = $${paramCount++}`)
+      values.push(JSON.stringify(triggerCriteria))
+      
+      updateFields.push(`triggers = $${paramCount++}`)
+      values.push(JSON.stringify(updates.triggers))
+    }
+    
+    if (updates.actions !== undefined) {
+      updateFields.push(`actions = $${paramCount++}`)
+      values.push(JSON.stringify(updates.actions))
+    }
+    
+    if (updates.is_active !== undefined) {
+      updateFields.push(`is_active = $${paramCount++}`)
+      values.push(updates.is_active)
+    }
+    
+    if (updates.webhook_url !== undefined) {
+      updateFields.push(`webhook_url = $${paramCount++}`)
+      values.push(updates.webhook_url)
+    }
+    
+    updateFields.push(`updated_at = NOW()`)
+    
+    if (updateFields.length === 1) { // Only updated_at
+      await client.query('COMMIT')
+      return { success: true }
+    }
+    
+    // Add WHERE clause parameters
+    values.push(playbookId)
+    values.push(tenantId)
+    
+    const query = `
+      UPDATE playbooks 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramCount++} AND tenant_id = $${paramCount}
+      RETURNING id
+    `
+    
+    const result = await client.query(query, values)
+    
+    if (result.rowCount === 0) {
+      throw new Error('Playbook not found or unauthorized')
+    }
+    
+    await client.query('COMMIT')
+    revalidatePath('/dashboard/automation')
+    return { success: true }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error updating playbook:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+export async function deletePlaybook(playbookId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    // Resolve tenant_id
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+    
+    // Delete playbook (cascades to playbook_runs, playbook_executions, webhook_queue)
+    const result = await client.query(
+      'DELETE FROM playbooks WHERE id = $1 AND tenant_id = $2 RETURNING id',
+      [playbookId, tenantId]
+    )
+    
+    if (result.rowCount === 0) {
+      throw new Error('Playbook not found or unauthorized')
+    }
+    
+    await client.query('COMMIT')
+    revalidatePath('/dashboard/automation')
+    return { success: true }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error deleting playbook:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+export async function togglePlaybookActive(playbookId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    // Resolve tenant_id
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+    
+    // Toggle is_active
+    const result = await client.query(
+      `UPDATE playbooks 
+       SET is_active = NOT is_active, updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 
+       RETURNING id, is_active`,
+      [playbookId, tenantId]
+    )
+    
+    if (result.rowCount === 0) {
+      throw new Error('Playbook not found or unauthorized')
+    }
+    
+    await client.query('COMMIT')
+    revalidatePath('/dashboard/automation')
+    return { success: true, is_active: result.rows[0].is_active }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error toggling playbook:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
 export async function runPlaybook(playbookId: string, accountId: string, triggeredBy: string = 'system') {
   const pb = await query('SELECT actions FROM playbooks WHERE id = $1 AND tenant_id = current_tenant_id() AND is_active = true', [playbookId])
   if (!pb.rows[0]) return { error: 'Playbook not found or inactive' }
