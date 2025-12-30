@@ -47,9 +47,9 @@ export async function diagnoseDatabaseState() {
       [tenantId]
     )
     
-    // Check journey history
+    // Check journey history (stage transitions)
     const historyResult = await client.query(
-      'SELECT account_id, stage_id, entered_at FROM journey_history WHERE tenant_id = $1 ORDER BY entered_at DESC LIMIT 10',
+      'SELECT account_id, from_stage, to_stage, entered_at FROM journey_history WHERE tenant_id = $1 ORDER BY entered_at DESC LIMIT 10',
       [tenantId]
     )
     
