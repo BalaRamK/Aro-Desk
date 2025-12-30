@@ -507,11 +507,21 @@ export async function createAccount(formData: FormData) {
     await client.query('BEGIN')
     await setUserContext(session.userId, client)
 
+    // Resolve tenant_id from current user's profile
+    const tenantRes = await client.query<{ tenant_id: string }>(
+      'SELECT tenant_id FROM profiles WHERE id = $1',
+      [session.userId]
+    )
+    const tenantId = tenantRes.rows[0]?.tenant_id
+    if (!tenantId) {
+      throw new Error('Unable to resolve tenant for current user')
+    }
+
     const accountResult = await client.query(
-      `INSERT INTO accounts (name, status, arr)
-       VALUES ($1, $2, $3)
+      `INSERT INTO accounts (name, status, arr, tenant_id)
+       VALUES ($1, $2, $3, $4)
        RETURNING id`,
-      [name, status, arr]
+      [name, status, arr, tenantId]
     )
 
     const accountId = accountResult.rows[0].id
