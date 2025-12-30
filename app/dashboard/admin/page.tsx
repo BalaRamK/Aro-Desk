@@ -1,5 +1,3 @@
-'use server'
-
 import { getJourneyStages } from '@/app/actions/dashboard'
 import { getHealthScoreWeighting } from '@/app/actions/admin'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,19 +7,7 @@ import { HealthScoreWeighting } from '@/components/health-score-weighting'
 import { MilestoneManager } from '@/components/milestone-manager'
 import { Settings, Layers, Target, Database } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { createTestHierarchyData } from '@/app/actions/test-data'
-import { revalidatePath } from 'next/cache'
-
-async function handleCreateTestData(formData: FormData) {
-  try {
-    await createTestHierarchyData()
-    revalidatePath('/dashboard/accounts')
-    revalidatePath('/dashboard/executive')
-  } catch (error) {
-    console.error('Test data creation failed:', error)
-    throw error
-  }
-}
+import Link from 'next/link'
 
 export default async function AdminPanelPage() {
   const [stages, weighting] = await Promise.all([
@@ -40,12 +26,12 @@ export default async function AdminPanelPage() {
             Define the rules of engagement for your Customer Success platform
           </p>
         </div>
-        <form action={handleCreateTestData}>
-          <Button type="submit" variant="outline" className="gap-2">
+        <Link href="/dashboard/test-data">
+          <Button type="button" variant="outline" className="gap-2">
             <Database className="h-4 w-4" />
             Generate Test Data
           </Button>
-        </form>
+        </Link>
       </div>
 
       <Tabs defaultValue="stages" className="w-full">
