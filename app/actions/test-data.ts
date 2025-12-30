@@ -24,7 +24,13 @@ export async function createTestHierarchyData() {
       'SELECT tenant_id FROM profiles WHERE id = $1',
       [session.userId]
     )
+    
+    if (tenantResult.rows.length === 0) {
+      throw new Error('User profile not found')
+    }
+    
     const tenantId = tenantResult.rows[0].tenant_id
+    console.log('Creating test data for tenant:', tenantId)
     
     // Get a journey stage (use first available)
     const stageResult = await client.query(
@@ -32,11 +38,22 @@ export async function createTestHierarchyData() {
       [tenantId]
     )
     
+    let stageId = null
     if (stageResult.rows.length === 0) {
-      throw new Error('No journey stages found. Please create journey stages first.')
+      console.log('No journey stages found, creating default stage...')
+      // Create a default stage if none exists
+      const newStageResult = await client.query(
+        `INSERT INTO journey_stages (tenant_id, stage, display_name, display_order)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [tenantId, 'onboarding', 'Onboarding', 1]
+      )
+      stageId = newStageResult.rows[0].id
+    } else {
+      stageId = stageResult.rows[0].id
     }
     
-    const stageId = stageResult.rows[0].id
+    console.log('Using stage ID:', stageId)
     
     // Check if test data already exists
     const existingResult = await client.query(
@@ -46,6 +63,7 @@ export async function createTestHierarchyData() {
     
     if (existingResult.rows.length > 0) {
       await client.query('COMMIT')
+      console.log('Test data already exists')
       return { success: true, message: 'Test data already exists' }
     }
     
@@ -178,6 +196,8 @@ export async function createTestHierarchyData() {
     await client.query('COMMIT')
     revalidatePath('/dashboard/accounts')
     
+    console.log('Test data created successfully')
+    
     return {
       success: true,
       message: 'Test data created successfully',
@@ -196,8 +216,9 @@ export async function createTestHierarchyData() {
     }
   } catch (error) {
     await client.query('ROLLBACK')
-    console.error('Error creating test data:', error)
-    throw error
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error creating test data:', errorMessage, error)
+    throw new Error(`Failed to create test data: ${errorMessage}`)
   } finally {
     client.release()
   }

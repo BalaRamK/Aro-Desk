@@ -78,6 +78,12 @@
       "namedRegex": "^/dashboard/automation(?:/)?$"
     },
     {
+      "page": "/dashboard/diagnostics",
+      "regex": "^/dashboard/diagnostics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/diagnostics(?:/)?$"
+    },
+    {
       "page": "/dashboard/executive",
       "regex": "^/dashboard/executive(?:/)?$",
       "routeKeys": {},
