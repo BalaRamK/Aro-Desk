@@ -12,10 +12,10 @@ async function runMigration() {
   });
 
   try {
-    const migrationPath = path.join(__dirname, '../database/migrations/08_add_playbook_scenario_key.sql');
+    const migrationPath = path.join(__dirname, '../database/migrations/09_cs_intelligence_enhancements.sql');
     const sql = fs.readFileSync(migrationPath, 'utf8');
     
-    console.log('Running migration: 08_add_playbook_scenario_key.sql');
+    console.log('Running migration: 09_cs_intelligence_enhancements.sql');
     await pool.query(sql);
     console.log('✅ Migration completed successfully');
   } catch (error) {

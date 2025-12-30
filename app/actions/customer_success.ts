@@ -541,3 +541,169 @@ export async function triggerAiFollowUpAction(accountId: string, context: Record
   }
   return triggerAiFollowUp(wf, accountId, context)
 }
+
+// ============================================================================
+// MULTI-DIMENSIONAL HEALTH SCORING
+// ============================================================================
+
+export async function updateHealthScoreDimensions(
+  accountId: string,
+  dimensions: {
+    product_usage?: number
+    engagement?: number
+    support_health?: number
+    adoption?: number
+    relationship?: number
+  }
+) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const client = await getClient()
+  
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+    
+    // Calculate overall score as weighted average
+    const scores = Object.values(dimensions).filter(v => v !== undefined)
+    const overallScore = scores.length > 0 
+      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      : 50
+    
+    // Insert or update health score with component breakdown
+    const result = await client.query(
+      `INSERT INTO health_scores (
+        tenant_id, account_id, overall_score, 
+        usage_score, engagement_score, support_sentiment_score, adoption_score,
+        component_scores, calculated_at
+      ) 
+      VALUES (
+        (SELECT tenant_id FROM profiles WHERE id = $1), 
+        $2, $3, $4, $5, $6, $7, $8::jsonb, NOW()
+      )
+      RETURNING id, overall_score, component_scores`,
+      [
+        session.userId,
+        accountId,
+        overallScore,
+        dimensions.product_usage || null,
+        dimensions.engagement || null,
+        dimensions.support_health || null,
+        dimensions.adoption || null,
+        JSON.stringify(dimensions)
+      ]
+    )
+    
+    await client.query('COMMIT')
+    revalidatePath(`/dashboard/accounts/${accountId}`)
+    return { success: true, data: result.rows[0] }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    console.error('Error updating health dimensions:', error)
+    throw error
+  } finally {
+    client.release()
+  }
+}
+
+export async function getHealthDimensions(accountId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const result = await query(
+    `SELECT 
+      overall_score,
+      component_scores,
+      calculated_at,
+      usage_score,
+      engagement_score,
+      support_sentiment_score,
+      adoption_score
+    FROM health_scores
+    WHERE account_id = $1 
+      AND tenant_id = current_tenant_id()
+    ORDER BY calculated_at DESC
+    LIMIT 1`,
+    [accountId]
+  )
+  
+  return result.rows[0] || null
+}
+
+// ============================================================================
+// ACCOUNT HIERARCHY FUNCTIONS
+// ============================================================================
+
+export async function getAccountChildren(parentAccountId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const result = await query(
+    'SELECT * FROM get_child_accounts($1)',
+    [parentAccountId]
+  )
+  
+  return result.rows
+}
+
+export async function getAccountHierarchyArr(parentAccountId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const result = await query(
+    'SELECT get_hierarchy_arr($1) as total_arr',
+    [parentAccountId]
+  )
+  
+  return result.rows[0]?.total_arr || 0
+}
+
+export async function getAccountBreadcrumb(accountId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  const result = await query(
+    'SELECT get_account_path($1) as path',
+    [accountId]
+  )
+  
+  return result.rows[0]?.path || ''
+}
+
+export async function refreshAccountHierarchy() {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+  
+  await query('SELECT refresh_account_hierarchy_summary()')
+  revalidatePath('/dashboard/accounts')
+  return { success: true }
+}
+
+// ============================================================================
+// ROLE-BASED ACCESS CHECKS
+// ============================================================================
+
+export async function getCurrentUserRole() {
+  const session = await getSession()
+  if (!session) return null
+  
+  const result = await query('SELECT current_user_role() as role')
+  return result.rows[0]?.role || null
+}
+
+export async function canExecutePlaybooks() {
+  const session = await getSession()
+  if (!session) return false
+  
+  const result = await query('SELECT is_practitioner() as can_execute')
+  return result.rows[0]?.can_execute || false
+}
+
+export async function canWriteData() {
+  const session = await getSession()
+  if (!session) return false
+  
+  const result = await query('SELECT can_write() as can_write')
+  return result.rows[0]?.can_write || false
+}
