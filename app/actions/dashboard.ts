@@ -31,11 +31,11 @@ export async function getHealthDistribution(params?: { startDate?: string; endDa
   const sqlParams: any[] = []
   if (startDate) {
     sqlParams.push(startDate)
-    dateFilters.push(`COALESCE(window_end, calculated_at, created_at)::date >= $${sqlParams.length}::date`)
+    dateFilters.push(`calculated_at::date >= $${sqlParams.length}::date`)
   }
   if (endDate) {
     sqlParams.push(endDate)
-    dateFilters.push(`COALESCE(window_end, calculated_at, created_at)::date <= $${sqlParams.length}::date`)
+    dateFilters.push(`calculated_at::date <= $${sqlParams.length}::date`)
   }
   const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
   
@@ -85,11 +85,11 @@ export async function getRevenueAtRisk(params?: { startDate?: string; endDate?: 
   const sqlParams: any[] = []
   if (startDate) {
     sqlParams.push(startDate)
-    dateFilters.push(`COALESCE(calculated_at, window_end, created_at)::date >= $${sqlParams.length}::date`)
+    dateFilters.push(`calculated_at::date >= $${sqlParams.length}::date`)
   }
   if (endDate) {
     sqlParams.push(endDate)
-    dateFilters.push(`COALESCE(calculated_at, window_end, created_at)::date <= $${sqlParams.length}::date`)
+    dateFilters.push(`calculated_at::date <= $${sqlParams.length}::date`)
   }
   const dateClause = dateFilters.length ? `WHERE ${dateFilters.join(' AND ')}` : ''
   
@@ -186,11 +186,11 @@ export async function getAccounts(filters?: {
   const healthDateConditions: string[] = []
   if (startDate) {
     params.push(startDate)
-    healthDateConditions.push(`COALESCE(calculated_at, window_end, created_at)::date >= $${params.length}::date`)
+    healthDateConditions.push(`calculated_at::date >= $${params.length}::date`)
   }
   if (endDate) {
     params.push(endDate)
-    healthDateConditions.push(`COALESCE(calculated_at, window_end, created_at)::date <= $${params.length}::date`)
+    healthDateConditions.push(`calculated_at::date <= $${params.length}::date`)
   }
   const healthDateClause = healthDateConditions.length ? `WHERE ${healthDateConditions.join(' AND ')}` : ''
   

@@ -27,10 +27,10 @@ export async function recordHealthScore(accountId: string, stage: Stage, metrics
   const score = uf * Number(weights.usage_frequency || 0) + br * Number(weights.breadth || 0) + dp * Number(weights.depth || 0)
 
   const prev = await query(
-    'SELECT score FROM health_scores WHERE tenant_id = current_tenant_id() AND account_id = $1 ORDER BY window_end DESC LIMIT 1',
+    'SELECT overall_score FROM health_scores WHERE tenant_id = current_tenant_id() AND account_id = $1 ORDER BY calculated_at DESC LIMIT 1',
     [accountId]
   )
-  const trend = prev.rows[0] ? Number(score) - Number(prev.rows[0].score) : null
+  const trend = prev.rows[0] ? Number(score) - Number(prev.rows[0].overall_score || 0) : null
 
   const sql = `
     INSERT INTO health_scores (tenant_id, account_id, stage, score, metrics, window_start, window_end, trend, notes)
@@ -52,13 +52,13 @@ export async function recordHealthScore(accountId: string, stage: Stage, metrics
 export async function getHealthTrend(accountId: string, limit = 12) {
   const res = await query(
     `SELECT 
-       COALESCE(window_end, calculated_at, created_at) AS window_end,
-       COALESCE(score, overall_score) AS score,
-       trend,
-       stage
+       calculated_at AS window_end,
+       overall_score AS score,
+       score_change AS trend,
+       risk_level AS stage
      FROM health_scores
      WHERE tenant_id = current_tenant_id() AND account_id = $1
-     ORDER BY COALESCE(window_end, calculated_at, created_at) DESC
+     ORDER BY calculated_at DESC
      LIMIT $2`,
     [accountId, limit]
   )
@@ -69,14 +69,14 @@ export async function getHealthTrend(accountId: string, limit = 12) {
 export async function getComponentTrends(accountId: string, limit = 12) {
   const res = await query(
     `SELECT
-       COALESCE(window_end, calculated_at, created_at) AS window_end,
+       calculated_at AS window_end,
        usage_score,
        engagement_score,
        support_sentiment_score,
        adoption_score
      FROM health_scores
      WHERE tenant_id = current_tenant_id() AND account_id = $1
-     ORDER BY COALESCE(window_end, calculated_at, created_at) DESC
+     ORDER BY calculated_at DESC
      LIMIT $2`,
     [accountId, limit]
   )
