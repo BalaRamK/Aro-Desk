@@ -114,8 +114,8 @@ export async function createTestHierarchyData() {
     await client.query(
       `INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,
       [
         parentId, tenantId, 85, 88, 82, 90, 85,
         JSON.stringify({
@@ -132,10 +132,10 @@ export async function createTestHierarchyData() {
     await client.query(
       `INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,
       [
-        child1Id, tenantId, 75, 78, 72, 80, 75,
+        child1Id, tenantId, 75, 78, 72, 80, 73,
         JSON.stringify({
           product_usage: 78,
           engagement: 72,
@@ -150,10 +150,10 @@ export async function createTestHierarchyData() {
     await client.query(
       `INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,
       [
-        child2Id, tenantId, 45, 50, 42, 48, 40,
+        child2Id, tenantId, 45, 50, 42, 48, 43,
         JSON.stringify({
           product_usage: 50,
           engagement: 42,
@@ -168,10 +168,10 @@ export async function createTestHierarchyData() {
     await client.query(
       `INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,
       [
-        standalone1Id, tenantId, 92, 95, 90, 93, 91,
+        standalone1Id, tenantId, 92, 95, 90, 93, 92,
         JSON.stringify({
           product_usage: 95,
           engagement: 90,

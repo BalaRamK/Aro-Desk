@@ -12,17 +12,17 @@ see more here https://nextjs.org/docs/messages/app-static-to-dynamic-error`),"__
        RETURNING id`,["Startup Inc",5e4,"Active",null,d])).rows[0].id;return await b.query(`INSERT INTO accounts (name, arr, status, parent_id, tenant_id, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,["TechCo Solutions",12e4,"At Risk",null,d]),await b.query(`INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,[h,d,85,88,82,90,85,JSON.stringify({product_usage:88,engagement:82,support_health:90,adoption:85,relationship:87})]),await b.query(`INSERT INTO health_scores (
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[h,d,85,88,82,90,85,JSON.stringify({product_usage:88,engagement:82,support_health:90,adoption:85,relationship:87})]),await b.query(`INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,[j,d,75,78,72,80,75,JSON.stringify({product_usage:78,engagement:72,support_health:80,adoption:73,relationship:72})]),await b.query(`INSERT INTO health_scores (
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[j,d,75,78,72,80,73,JSON.stringify({product_usage:78,engagement:72,support_health:80,adoption:73,relationship:72})]),await b.query(`INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,[k,d,45,50,42,48,40,JSON.stringify({product_usage:50,engagement:42,support_health:48,adoption:43,relationship:42})]),await b.query(`INSERT INTO health_scores (
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[k,d,45,50,42,48,43,JSON.stringify({product_usage:50,engagement:42,support_health:48,adoption:43,relationship:42})]),await b.query(`INSERT INTO health_scores (
         account_id, tenant_id, overall_score, usage_score, engagement_score,
-        support_health, sentiment_score, component_scores, calculated_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())`,[l,d,92,95,90,93,91,JSON.stringify({product_usage:95,engagement:90,support_health:93,adoption:92,relationship:90})]),await b.query(`INSERT INTO journey_history (account_id, stage_id, tenant_id, entered_at, notes)
+        support_sentiment_score, adoption_score, component_scores, calculated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW())`,[l,d,92,95,90,93,92,JSON.stringify({product_usage:95,engagement:90,support_health:93,adoption:92,relationship:90})]),await b.query(`INSERT INTO journey_history (account_id, stage_id, tenant_id, entered_at, notes)
        VALUES 
          ($1, $2, $3, NOW() - INTERVAL '90 days', 'Parent account onboarded'),
          ($4, $2, $3, NOW() - INTERVAL '60 days', 'North region division started'),
