@@ -151,11 +151,14 @@ export async function createPlaybook(name: string, description: string, triggers
       throw new Error('Unable to resolve tenant for current user')
     }
     
+    // Generate a unique scenario_key from name
+    const scenarioKey = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now()
+    
     const res = await client.query(
       `INSERT INTO playbooks (tenant_id, name, description, scenario_key, triggers, actions, is_active) 
        VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, true) 
        RETURNING id`,
-      [tenantId, name, description, 'custom_automation', JSON.stringify(triggers), JSON.stringify(actions)]
+      [tenantId, name, description, scenarioKey, JSON.stringify(triggers), JSON.stringify(actions)]
     )
     
     await client.query('COMMIT')
