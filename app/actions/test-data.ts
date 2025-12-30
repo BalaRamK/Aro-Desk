@@ -34,26 +34,26 @@ export async function createTestHierarchyData() {
     
     // Get a journey stage (use first available)
     const stageResult = await client.query(
-      'SELECT id FROM journey_stages WHERE tenant_id = $1 LIMIT 1',
+      `SELECT stage FROM journey_stages WHERE tenant_id = $1 LIMIT 1`,
       [tenantId]
     )
     
-    let stageId = null
+    let stageName = null
     if (stageResult.rows.length === 0) {
       console.log('No journey stages found, creating default stage...')
       // Create a default stage if none exists
       const newStageResult = await client.query(
         `INSERT INTO journey_stages (tenant_id, stage, display_name, display_order)
          VALUES ($1, $2, $3, $4)
-         RETURNING id`,
-        [tenantId, 'onboarding', 'Onboarding', 1]
+         RETURNING stage`,
+        [tenantId, 'Onboarding', 'Onboarding', 1]
       )
-      stageId = newStageResult.rows[0].id
+      stageName = newStageResult.rows[0].stage
     } else {
-      stageId = stageResult.rows[0].id
+      stageName = stageResult.rows[0].stage
     }
     
-    console.log('Using stage ID:', stageId)
+    console.log('Using stage:', stageName)
     
     // Check if test data already exists
     const existingResult = await client.query(
@@ -190,7 +190,7 @@ export async function createTestHierarchyData() {
          ($4, $2, $3, NOW() - INTERVAL '60 days', 'North region division started'),
          ($5, $2, $3, NOW() - INTERVAL '60 days', 'South region division started'),
          ($6, $2, $3, NOW() - INTERVAL '30 days', 'New startup customer')`,
-      [parentId, stageId, tenantId, child1Id, child2Id, standalone1Id]
+      [parentId, stageName, tenantId, child1Id, child2Id, standalone1Id]
     )
     
     await client.query('COMMIT')
