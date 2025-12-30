@@ -5,7 +5,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StageDesigner } from '@/components/stage-designer'
 import { HealthScoreWeighting } from '@/components/health-score-weighting'
 import { MilestoneManager } from '@/components/milestone-manager'
-import { Settings, Layers, Target } from 'lucide-react'
+import { Settings, Layers, Target, Database } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { createTestHierarchyData } from '@/app/actions/test-data'
+
+async function CreateTestDataButton() {
+  async function handleCreateTestData() {
+    'use server'
+    await createTestHierarchyData()
+  }
+
+  return (
+    <form action={handleCreateTestData}>
+      <Button type="submit" variant="outline" className="gap-2">
+        <Database className="h-4 w-4" />
+        Generate Test Data
+      </Button>
+    </form>
+  )
+}
 
 export default async function AdminPanelPage() {
   const [stages, weighting] = await Promise.all([
@@ -15,13 +33,16 @@ export default async function AdminPanelPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          CS Handbook
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">
-          Define the rules of engagement for your Customer Success platform
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+            CS Handbook
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
+            Define the rules of engagement for your Customer Success platform
+          </p>
+        </div>
+        <CreateTestDataButton />
       </div>
 
       <Tabs defaultValue="stages" className="w-full">

@@ -20,7 +20,7 @@ export function AccountActions({ account, allAccounts }: { account: any; allAcco
     name: account.name,
     arr: account.arr || '',
     status: account.status || 'Active',
-    parent_id: account.parent_id || '',
+    parent_id: account.parent_id || 'none',
   })
 
   async function handleUpdate() {
@@ -30,7 +30,7 @@ export function AccountActions({ account, allAccounts }: { account: any; allAcco
         name: formData.name,
         arr: formData.arr ? Number(formData.arr) : null,
         status: formData.status,
-        parent_id: formData.parent_id || null,
+        parent_id: formData.parent_id === 'none' ? null : formData.parent_id,
       })
       setOpenEdit(false)
       router.refresh()
@@ -109,7 +109,7 @@ export function AccountActions({ account, allAccounts }: { account: any; allAcco
                     <SelectValue placeholder="None - Root account" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None - Root account</SelectItem>
+                    <SelectItem value="none">None - Root account</SelectItem>
                     {allAccounts
                       .filter(acc => acc.id !== account.id)
                       .map(acc => (
