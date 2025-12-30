@@ -868,3 +868,174 @@ export async function getRecentAccounts(limit: number = 5) {
   
   return result.rows
 }
+
+// Get meetings and emails for account timeline
+export async function getAccountMeetingsAndEmails(accountId: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+
+  const client = await getClient()
+
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    // Get support tickets (converted to timeline events)
+    const ticketsResult = await client.query(`
+      SELECT 
+        id, subject, status, severity, 
+        created_at, updated_at, resolved_at,
+        assigned_to
+      FROM support_tickets
+      WHERE account_id = $1
+      ORDER BY created_at DESC
+      LIMIT 50
+    `, [accountId])
+
+    // Get meetings from account_profile.meeting_notes (stored as JSONB)
+    const meetingsResult = await client.query(`
+      SELECT 
+        id, last_meeting_date, meeting_notes
+      FROM account_profile
+      WHERE account_id = $1
+    `, [accountId])
+
+    // Get usage events (converted to timeline)
+    const usageResult = await client.query(`
+      SELECT 
+        id, event_type, event_value, created_at
+      FROM usage_events
+      WHERE account_id = $1
+      ORDER BY created_at DESC
+      LIMIT 20
+    `, [accountId])
+
+    await client.query('COMMIT')
+
+    // Transform to timeline event format
+    const events = []
+
+    // Add support tickets as timeline events
+    ticketsResult.rows.forEach((ticket: any) => {
+      events.push({
+        id: ticket.id,
+        type: 'Ticket',
+        timestamp: ticket.created_at,
+        summary: ticket.subject,
+        description: `${ticket.status} • ${ticket.severity}`,
+        actor: {
+          name: 'Support Team',
+          role: 'Support',
+        },
+        metadata: {
+          ticketId: ticket.id,
+          severity: ticket.severity,
+          status: ticket.status,
+        },
+      })
+    })
+
+    // Add meetings from account_profile
+    if (meetingsResult.rows.length > 0) {
+      const profile = meetingsResult.rows[0]
+      if (profile.meeting_notes && typeof profile.meeting_notes === 'object') {
+        const notes = profile.meeting_notes
+        events.push({
+          id: `meeting-${profile.id}`,
+          type: 'Meeting',
+          timestamp: profile.last_meeting_date || new Date(),
+          summary: notes.subject || 'Meeting Synced from Outlook',
+          description: notes.notes || '',
+          actor: {
+            name: notes.organizer || 'Calendar',
+            email: notes.organizer,
+            role: 'Organizer',
+          },
+          metadata: {
+            duration: notes.duration_minutes,
+            attendees: notes.attendees || [],
+          },
+        })
+      }
+    }
+
+    // Add usage events
+    usageResult.rows.forEach((usage: any) => {
+      events.push({
+        id: usage.id,
+        type: 'Custom',
+        timestamp: usage.created_at,
+        summary: `${usage.event_type.charAt(0).toUpperCase() + usage.event_type.slice(1)} Activity`,
+        actor: {
+          name: 'System',
+          role: 'Telemetry',
+        },
+        metadata: {
+          eventType: usage.event_type,
+          value: usage.event_value,
+        },
+      })
+    })
+
+    // Sort by timestamp descending
+    events.sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )
+
+    return events
+  } catch (error) {
+    console.error('Error fetching meetings and emails:', error)
+    await client.query('ROLLBACK')
+    return []
+  }
+}
+
+// Get last sync status for Outlook integration
+export async function getLastSyncStatus(accountId: string) {
+  const session = await getSession()
+  if (!session) redirect('/login')
+
+  const client = await getClient()
+
+  try {
+    await client.query('BEGIN')
+    await setUserContext(session.userId, client)
+
+    const result = await client.query(`
+      SELECT 
+        last_meeting_date,
+        updated_at,
+        meeting_notes
+      FROM account_profile
+      WHERE account_id = $1
+    `, [accountId])
+
+    await client.query('COMMIT')
+
+    if (result.rows.length === 0) {
+      return {
+        lastSync: null,
+        lastMeeting: null,
+        hasData: false,
+      }
+    }
+
+    const profile = result.rows[0]
+    return {
+      lastSync: profile.updated_at,
+      lastMeeting: profile.last_meeting_date,
+      hasData: !!profile.meeting_notes,
+    }
+  } catch (error) {
+    console.error('Error fetching sync status:', error)
+    await client.query('ROLLBACK')
+    return {
+      lastSync: null,
+      lastMeeting: null,
+      hasData: false,
+    }
+  }
+}
+
+

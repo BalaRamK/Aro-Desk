@@ -1,4 +1,4 @@
-import { getAccountDetails } from '@/app/actions/dashboard'
+import { getAccountDetails, getAccountMeetingsAndEmails, getLastSyncStatus } from '@/app/actions/dashboard'
 import { getHealthTrend, getComponentTrends, listSuccessPlans, listPlanSteps, listAlerts, listSentiment, listCdiEvents, listPlaybookRuns } from '@/app/actions/customer_success'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,10 +7,11 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { 
   Phone, Mail, Calendar, TrendingUp, TrendingDown, Activity,
-  Building2, DollarSign, Users, Clock
+  Building2, DollarSign, Users, Clock, RefreshCw
 } from 'lucide-react'
 import { Sparkline, SentimentSparkline, PlanProgress } from '@/components/sparkline'
 import { SendReengagementEmailButton } from '@/components/ai-actions'
+import { AccountProfileTimeline } from '@/components/account-profile-timeline'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
@@ -29,6 +30,7 @@ export default async function AccountDetailPage({
 
   const { account, subsidiaries, journey, metrics } = data
 
+
   // Customer Success extensions
   const healthTrend = await getHealthTrend(id, 12)
   const componentTrendRows = await getComponentTrends(id, 12)
@@ -41,6 +43,10 @@ export default async function AccountDetailPage({
     planStepsMap[p.id] = await listPlanSteps(p.id)
   }
   const playbookRuns = await listPlaybookRuns(id, 20)
+
+  // Fetch meetings, emails, and sync status
+  const timelineEvents = await getAccountMeetingsAndEmails(id)
+  const syncStatus = await getLastSyncStatus(id)
 
   // Build hierarchy breadcrumb
   const hierarchyPath = account.hierarchy_path?.split('.') || []
@@ -210,9 +216,10 @@ export default async function AccountDetailPage({
             </CardContent>
           </Card>
 
-          {/* Tabs for Journey, Metrics, Health, Plans, Playbooks, Alerts, CDI */}
-          <Tabs defaultValue="journey" className="w-full">
-            <TabsList className="grid w-full grid-cols-7">
+          {/* Tabs for Journey, Metrics, Health, Plans, Playbooks, Alerts, CDI, Activity */}
+          <Tabs defaultValue="activity" className="w-full">
+            <TabsList className="grid w-full grid-cols-8">
+              <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="journey">Journey</TabsTrigger>
               <TabsTrigger value="metrics">Metrics</TabsTrigger>
               <TabsTrigger value="health">Health</TabsTrigger>
@@ -221,6 +228,38 @@ export default async function AccountDetailPage({
               <TabsTrigger value="alerts">Alerts</TabsTrigger>
               <TabsTrigger value="cdi">CDI</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="activity">
+              <div className="space-y-4">
+                {/* Sync Status Card */}
+                {syncStatus.hasData && (
+                  <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <div>
+                            <CardTitle className="text-sm">Outlook Sync Status</CardTitle>
+                            <CardDescription className="text-xs">
+                              {syncStatus.lastSync ? `Last synced ${format(new Date(syncStatus.lastSync), 'MMM dd, yyyy h:mm a')}` : 'Never synced'}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          ✓ Connected
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                )}
+                
+                {/* Activity Timeline */}
+                <AccountProfileTimeline 
+                  events={timelineEvents}
+                  itemsPerPage={15}
+                />
+              </div>
+            </TabsContent>
 
             <TabsContent value="journey">
               <Card>
