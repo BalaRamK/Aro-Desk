@@ -4,6 +4,7 @@ import { query, setUserContext } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { getSession } from './auth-local';
 import { redirect } from 'next/navigation';
+import { isSuperAdmin } from './admin';
 
 export type IntegrationType = 'jira' | 'zoho_crm' | 'zoho_desk' | 'salesforce' | 'hubspot' | 'zendesk' | 'intercom' | 'slack' | 'custom';
 
@@ -38,6 +39,11 @@ export interface IntegrationStats {
 
 // Get all integration sources
 export async function getIntegrationSources() {
+  const isAdmin = await isSuperAdmin();
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Super admin access required to view integration sources');
+  }
+
   try {
     const result = await query<IntegrationSource>(
       `SELECT 
@@ -58,6 +64,11 @@ export async function getIntegrationSources() {
 
 // Get integration statistics
 export async function getIntegrationStats(): Promise<IntegrationStats> {
+  const isAdmin = await isSuperAdmin();
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Super admin access required to view integration stats');
+  }
+
   try {
     const statsQuery = await query(`
       SELECT 
@@ -117,6 +128,11 @@ export async function createIntegrationSource(data: {
   n8n_workflow_id?: string;
   n8n_webhook_url?: string;
 }) {
+  const isAdmin = await isSuperAdmin();
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Super admin access required to create integrations');
+  }
+
   const session = await getSession()
   if (!session) redirect('/login')
   
@@ -168,6 +184,11 @@ export async function updateIntegrationSource(
     is_active: boolean;
   }>
 ) {
+  const isAdmin = await isSuperAdmin();
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Super admin access required to update integrations');
+  }
+
   try {
     const updates: string[] = [];
     const values: any[] = [];
@@ -336,6 +357,11 @@ export async function provisionN8nWebhook(
 
 // Delete integration source
 export async function deleteIntegrationSource(id: string) {
+  const isAdmin = await isSuperAdmin();
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Super admin access required to delete integrations');
+  }
+
   try {
     await query(
       'DELETE FROM integration_sources WHERE id = $1',
@@ -405,6 +431,11 @@ export async function triggerSync(integrationId: string) {
 
 // Get recent sync logs for an integration
 export async function getSyncLogs(integrationId: string, limit = 10) {
+  const isAdmin = await isSuperAdmin();
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Super admin access required to view sync logs');
+  }
+
   try {
     const result = await query(
       `SELECT 
