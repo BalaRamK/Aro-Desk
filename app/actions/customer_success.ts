@@ -154,9 +154,21 @@ export async function createPlaybook(name: string, description: string, triggers
     // Generate a unique scenario_key from name
     const scenarioKey = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now()
     
+    // Map UI trigger types to database enum values
+    const triggerTypeMap: Record<string, string> = {
+      'health_score_drop': 'Health Score Drop',
+      'stage_change': 'Stage Transition',
+      'usage_decline': 'Usage Decline',
+      'support_spike': 'Support Ticket',
+      'contract_approaching': 'Contract Expiration',
+      'manual': 'Manual',
+      'scheduled': 'Scheduled'
+    }
+    
     // Extract trigger type and criteria from triggers object
     // triggers has format: { type: 'health_score_drop', params: {...} }
-    const triggerType = triggers?.type || 'custom_trigger'
+    const uiTriggerType = triggers?.type || 'manual'
+    const triggerType = triggerTypeMap[uiTriggerType] || 'Manual'
     const triggerCriteria = triggers?.params || {}
     
     // For webhook, use a placeholder URL (can be updated via UI)
