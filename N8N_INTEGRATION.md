@@ -15,6 +15,12 @@ n8n is a workflow automation tool that can be integrated with the platform to:
 - **How do I get it?** In n8n, add a “Webhook” trigger node → copy the Production URL (or Test URL while building). Paste that into the platform env/config where `N8N_WEBHOOK_URL` is referenced.
 - **Can this be automatic?** We can automate by calling the n8n REST API to create a workflow and read its webhook URL during setup; today it’s manual. If you want this automated, we can add a small setup step that provisions a default workflow and stores the URL.
 
+## Zoho Desk OAuth redirect URI (n8n)
+- For OAuth credentials in n8n, set the redirect to: `https://your-n8n-instance/rest/oauth2-credential/callback`
+- Local dev needs a public tunnel (e.g., `ngrok http 5678` → `https://<subdomain>.ngrok.io/rest/oauth2-credential/callback`). Zoho rejects plain localhost.
+- Production: use your n8n host, e.g., `https://n8n.yourdomain.com/rest/oauth2-credential/callback`.
+- Required Zoho fields: client_id, client_secret, scope (e.g., Desk.tickets.READ, Desk.tickets.WRITE), api_domain (zoho.com/zoho.eu/zoho.in), and the redirect above.
+
 ## Setup Options
 
 ### Option 1: Self-Hosted n8n (Recommended)
