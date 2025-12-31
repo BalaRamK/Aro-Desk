@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/app/actions/auth-local';
 
 const GEMINI_API_KEY = process.env.GEMINI_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent';
+// Using the latest Gemini 2.5 Flash model with v1beta API
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
 
 interface AutomationRequest {
   description: string;
