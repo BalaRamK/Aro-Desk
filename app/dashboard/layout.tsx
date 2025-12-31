@@ -135,7 +135,7 @@ export default async function DashboardLayout({
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="flex items-center">
                       <Shield className="mr-2 h-4 w-4" />
-                      <span>CS Handbook</span>
+                      <span>Admin Account</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
