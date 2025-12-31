@@ -83,7 +83,7 @@ Users can now describe the automation they want, and AI will generate the comple
    - Returns tips for effective automation descriptions
 
 **Key Features:**
-- OpenAI integration using `OPENAI_API_KEY` from Vercel environment
+- Gemini AI integration using `GEMINI_KEY` from Vercel environment
 - Structured prompt engineering for consistent playbook generation
 - JSON extraction and validation from AI responses
 - Full conversation history support for iterative building
@@ -192,13 +192,13 @@ Users can now describe the automation they want, and AI will generate the comple
 
 **Required Environment Variables:**
 ```env
-OPENAI_API_KEY=sk-...  # From Vercel environment variables
+GEMINI_KEY=your-gemini-key-here  # From Google AI Studio
 ```
 
 **For Vercel Deployment:**
 1. Go to your Vercel project settings
-2. Add `OPENAI_API_KEY` to Environment Variables
-3. Value: Your OpenAI API key from https://platform.openai.com/api-keys
+2. Add `GEMINI_KEY` to Environment Variables
+3. Value: Your Gemini API key from https://makersuite.google.com/app/apikey
 
 ### Error Handling
 - Graceful fallback if OpenAI API is not configured

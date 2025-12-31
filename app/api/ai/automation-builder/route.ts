@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/app/actions/auth-local';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+const GEMINI_API_KEY = process.env.GEMINI_KEY;
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
 interface AutomationRequest {
   description: string;
@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!OPENAI_API_KEY) {
+    if (!GEMINI_API_KEY) {
       return NextResponse.json(
         { 
-          error: 'AI service not configured. Please set OPENAI_API_KEY in environment variables.',
-          suggestion: 'For Vercel deployments, add OPENAI_API_KEY to your project environment variables.'
+          error: 'AI service not configured. Please set GEMINI_KEY in environment variables.',
+          suggestion: 'For Vercel deployments, add GEMINI_KEY to your project environment variables.'
         },
         { status: 500 }
       );
@@ -108,33 +108,39 @@ Supported action types:
 
 Keep your responses helpful and concise. If the user's request is unclear, ask one or two clarifying questions before providing the full configuration.`;
 
-    // Prepare messages for the API call
-    const messages = [
-      ...conversationHistory,
-      { role: 'user' as const, content: description }
-    ];
+    // Prepare conversation history for Gemini
+    const conversationText = conversationHistory.length > 0
+      ? conversationHistory.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n')
+      : '';
 
-    // Call OpenAI API
-    const response = await fetch(OPENAI_API_URL, {
+    const fullPrompt = `${systemPrompt}
+
+${conversationText ? `Previous conversation:\n${conversationText}\n\n` : ''}User: ${description}
+
+Please respond as the automation assistant.`;
+
+    // Call Gemini API
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4-turbo-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        contents: [{
+          parts: [{
+            text: fullPrompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2000,
+        },
       }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('OpenAI API error:', error);
+      console.error('Gemini API error:', error);
       return NextResponse.json(
         { 
           error: 'Failed to generate automation configuration',
@@ -145,7 +151,7 @@ Keep your responses helpful and concise. If the user's request is unclear, ask o
     }
 
     const data = await response.json();
-    const assistantMessage = data.choices[0]?.message?.content || '';
+    const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
     // Try to extract JSON from the response
     let playbookConfig: PlaybookConfig | null = null;

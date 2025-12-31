@@ -2,21 +2,21 @@
 
 ## Quick Start
 
-### 1. Configure OpenAI API Key
+### 1. Configure Gemini API Key
 
 **For Local Development:**
-1. Get your API key from https://platform.openai.com/api-keys
+1. Get your API key from https://makersuite.google.com/app/apikey
 2. Add to your `.env.local` file:
    ```
-   OPENAI_API_KEY=sk-your-key-here
+   GEMINI_KEY=your-key-here
    ```
 
 **For Vercel Deployment:**
 1. Go to your Vercel project dashboard
 2. Navigate to **Settings** → **Environment Variables**
 3. Add a new variable:
-   - **Name:** `OPENAI_API_KEY`
-   - **Value:** Your OpenAI API key
+   - **Name:** `GEMINI_KEY`
+   - **Value:** Your Gemini API key
 4. Redeploy the project
 
 ### 2. Access the AI Automation Builder
