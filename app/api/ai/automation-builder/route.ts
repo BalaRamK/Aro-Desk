@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/app/actions/auth-local';
 
 const GEMINI_API_KEY = process.env.GEMINI_KEY;
-// Fallback to Gemini 1.5 Flash (broadly available, lower quota requirements)
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+// Use the stable v1 endpoint for Gemini 1.5 Flash (v1beta may not expose this model)
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
 
 interface AutomationRequest {
   description: string;
