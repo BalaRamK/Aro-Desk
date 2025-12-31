@@ -169,7 +169,8 @@ Please respond as the automation assistant.`;
       message: assistantMessage,
       playbookConfig,
       conversationHistory: [
-        ...messages,
+        ...conversationHistory,
+        { role: 'user', content: description },
         { role: 'assistant', content: assistantMessage }
       ]
     });
